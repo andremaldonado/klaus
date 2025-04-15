@@ -1,0 +1,4 @@
+openai
+requests
+functions-framework
+python-telegram-bot
