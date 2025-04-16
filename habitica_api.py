@@ -69,3 +69,20 @@ def format_tasks(tasks):
     # Combine both lists with semicolon separators
     tasks_text = ";".join(todos_text) + ";" + ";".join(dailies_text)
     return tasks_text
+
+def create_task_todo(text, notes="", priority=1, iso_date=None):
+    url = "https://habitica.com/api/v3/tasks/user"
+    payload = {
+        "type": "todo",
+        "text": text,
+        "notes": notes,
+        "priority": priority
+    }
+    if iso_date:
+        payload["date"] = iso_date  # Ex: "2025-04-20T12:00:00.000Z"
+
+    response = requests.post(url, headers=HEADERS, json=payload)
+    if response.status_code != 201:
+        raise Exception(f"Error creating task: {response.text}")
+
+    return response.json()["data"]

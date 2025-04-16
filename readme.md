@@ -84,7 +84,7 @@ You can test the endpoint using a tool like curl. For instance, to simulate a ge
 ```bash
 curl -X POST "http://localhost:8080?source=web" \
     -H "Content-Type: application/json" \
-    -d '{"text": "What are my tasks?"}'
+    -d '{"message":{"text": "What are my tasks?"}}'
 ```
 
 5. **Telegram Integration Testing:**
