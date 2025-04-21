@@ -2,3 +2,4 @@ google-genai
 requests
 functions-framework
 python-telegram-bot
+rapidfuzz
