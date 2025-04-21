@@ -1,6 +1,6 @@
 import functions_framework
 from datetime import datetime, timedelta
-from habitica_api import get_tasks, create_task_todo
+from habitica_api import get_tasks, find_task_by_message, create_task_todo, complete_task
 from ai_assistant import generate_chatgpt_suggestion, interpret_user_message
 from handlers.telegram_handler import validate_telegram_request, send_telegram_message
 
@@ -64,6 +64,15 @@ def webhook(request):
             # Create the new task using Habitica API.
             created_task = create_task_todo(task_title, notes="", priority=priority_value, iso_date=iso_date)
             response_message = "Tarefa criada! Vamos em frente!"
+        elif message_type == "task_conclusion":
+            task_title = interpretation.get("task")
+            # Find out which task to mark as completed.
+            tasks = get_tasks()
+            task = find_task_by_message(tasks, task_title)
+            task_id = task.get("id")
+            # Mark the task as completed using Habitica API.
+            complete_task(task_id)
+            response_message = f"Tarefa \"{task.get('title')}\" concluída! Bom trabalho!"
         else:
             response_message = "The message is unrelated to task management.'"
 

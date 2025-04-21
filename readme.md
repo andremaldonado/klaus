@@ -4,7 +4,7 @@ This project integrates with Habitica to fetch and process user tasks, then uses
 
 ## Project Structure
 
-```
+.
 ├── main.py                      # Entry point for Cloud Functions (HTTP request dispatcher)
 ├── habitica_api.py              # Module to interact with Habitica API and format tasks
 ├── ai_assistant.py              # Module to generate suggestions via ChatGPT
@@ -12,7 +12,6 @@ This project integrates with Habitica to fetch and process user tasks, then uses
 │   └── telegram_handler.py      # Telegram-specific request handler
 ├── requirements.txt             # Python package dependencies
 └── README.md                    # Project documentation and best practices
-```
 
 ## Environment Variables
 
@@ -20,7 +19,7 @@ For the correct functioning of the project, make sure to set the following envir
 
 - **HABITICA_USER_ID**: Your Habitica user ID.
 - **HABITICA_API_TOKEN**: Your Habitica API token.
-- **OPENAI_API_KEY**: Your API key for OpenAI.
+- **GEMINI_API_KEY**: Your API key for Gemini.
 - **TELEGRAM_BOT_TOKEN**: The token for your Telegram bot.
 - **TELEGRAM_SECRET_TOKEN**: A secret token used to validate incoming Telegram requests.
 - **TELEGRAM_ALLOWED_CHAT_IDS**: List of allowed chat IDS that can use this bot on telegram
@@ -62,7 +61,7 @@ Configure the required environment variables. For example, in a Unix-based termi
 ```bash
 export HABITICA_USER_ID="your_habitica_user_id"
 export HABITICA_API_TOKEN="your_habitica_api_token"
-export OPENAI_API_KEY="your_openai_api_key"
+export GEMINI_API_KEY="your_gemini_api_key"
 export TELEGRAM_BOT_TOKEN="your_telegram_bot_token"
 export TELEGRAM_SECRET_TOKEN="your_telegram_secret_token"
 ```
