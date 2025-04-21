@@ -1,0 +1,19 @@
+# Use official Python runtime as a parent image
+FROM python:3.9-slim
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements file and install dependencies
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the application code
+COPY . .
+
+# Expose port for Functions Framework
+ENV PORT 8080
+EXPOSE 8080
+
+# Run the Functions Framework to serve the 'webhook' function
+ENTRYPOINT ["functions-framework", "--target=webhook", "--port=8080"]

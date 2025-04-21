@@ -65,13 +65,14 @@ def interpret_user_message(user_message):
 
         - Refere-se à criação de uma nova tarefa.
         - Solicita o status de tarefas existentes.
+        - Solicita a conclusão de uma tarefa.
         - Não está relacionada a nenhuma das anteriores.
 
         Você DEVE extrair os seguintes campos e retorná-los em JSON no seguinte formato:
 
         {
         "message": [mensagem original do usuário],
-        "type": ["new_task" | "task_status" | "unrelated"],
+        "type": ["new_task" | "task_status" | "task_conclusion" | "unrelated"],
         "task": [título resumido da tarefa ou null],
         "date": [data mencionada como "hoje", "amanhã" ou null],
         "priority": ["low" | "medium" | "high" | null]
@@ -101,6 +102,12 @@ def interpret_user_message(user_message):
 
         Usuário: "A pizza chegou"  
         Saída: { "message": "A pizza chegou", "type": "unrelated", "task": null, "date": null, "priority": null }
+
+        Usuário: "Terminei de ler o livro"
+        Saída: { "message": "Terminei de ler o livro", "type": "task_conclusion", "task": "ler o livro", "date": null, "priority": null }
+
+        Usuário: "Já fiz a lição"
+        Saída: { "message": "Já fiz a lição", "type": "task_conclusion", "task": "lição", "date": null, "priority": null }
 
         FIM
 
