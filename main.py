@@ -1,7 +1,7 @@
 import functions_framework
 from datetime import datetime, timedelta
 from habitica_api import get_tasks, find_task_by_message, create_task_todo, complete_task
-from ai_assistant import generate_chatgpt_suggestion, interpret_user_message
+from ai_assistant import generate_chatgpt_suggestion, interpret_user_message, chat
 from handlers.telegram_handler import validate_telegram_request, send_telegram_message
 
 @functions_framework.http
@@ -74,7 +74,7 @@ def webhook(request):
             complete_task(task_id)
             response_message = f"Tarefa \"{task.get('title')}\" concluída! Bom trabalho!"
         else:
-            response_message = "The message is unrelated to task management.'"
+            response_message = chat(user_message)
 
         # If source is telegram, send the message via Telegram.
         if source == "telegram" and telegram_chat_id:

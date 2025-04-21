@@ -6,11 +6,17 @@ This project integrates with Habitica to fetch and process user tasks, then uses
 
 .
 ├── main.py                      # Entry point for Cloud Functions (HTTP request dispatcher)
+
 ├── habitica_api.py              # Module to interact with Habitica API and format tasks
+
 ├── ai_assistant.py              # Module to generate suggestions via ChatGPT
+
 ├── handlers
+
 │   └── telegram_handler.py      # Telegram-specific request handler
+
 ├── requirements.txt             # Python package dependencies
+
 └── README.md                    # Project documentation and best practices
 
 ## Environment Variables

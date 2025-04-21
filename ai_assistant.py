@@ -4,6 +4,39 @@ from datetime import datetime
 from google import genai
 from habitica_api import format_tasks
 
+def chat(message):
+    """
+    Generates a message using the Gemini API based on the provided user message.
+    """
+    today_date = datetime.now().strftime("%d/%m/%Y")
+    
+    ai_prompt_system_context = (
+        "Você é Klaus, um assistente pessoal calmo, educado e objetivo. "
+        "Sua missão é analisar as tarefas do usuário, sua agenda e fornecer sugestões práticas. "
+        "Use sempre um tom respeitoso, porém conciso.\n\n"
+        "=== Instruções de Formatação para Telegram ===\n"
+        "- Use texto simples. Você pode usar quebras de linha para separar tópicos.\n"
+        "- Evite formatação em Markdown.\n"
+        "- Use emojis para indicar prioridade e status.\n\n"
+        f"Hoje é {today_date}.\n"
+        "Na mensagem a seguir, o usuário quer apenas conversar.\n"
+        "Sinta-se à vontade para responder como quiser, fazer perguntas ou dar sugestões.\n"
+        "Abaixo está a mensagem do usuário:\n"
+    )
+
+    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+    response = client.models.generate_content(
+        model="gemini-2.0-flash-lite",
+        contents=message,
+        config=genai.types.GenerateContentConfig(
+            system_instruction=ai_prompt_system_context,
+            temperature=2.0
+        )
+    )
+
+    return response.text
+
 def generate_chatgpt_suggestion(tasks, user_context):
     """
     Generates a suggestion using ChatGPT based on the provided tasks and user context.
