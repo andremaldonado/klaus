@@ -3,3 +3,4 @@ requests
 functions-framework
 python-telegram-bot
 rapidfuzz
+google-cloud-firestore

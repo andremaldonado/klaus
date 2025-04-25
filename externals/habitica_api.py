@@ -1,6 +1,7 @@
 import requests
 import os
 from rapidfuzz import fuzz
+from typing import Any, Dict, List, Optional
 
 USER_ID = os.environ.get("HABITICA_USER_ID")
 API_TOKEN = os.environ.get("HABITICA_API_TOKEN")
@@ -11,19 +12,17 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
-def find_task_by_message(tasks, message):
+
+def find_task_by_message(tasks: List[Dict[str, Any]], message: str, threshold: int = 80) -> Dict[str, Any]:
     """
-    Internally searches for all 'todo' and 'daily' tasks, compares the text of each title with 
-    the user's message using Levenshtein (via rapidfuzz) and returns the ID of the task 
-    with the highest similarity and the score (0-100). If none exceeds 80%, 
-    throws TaskNotFoundError.
+    Searches 'todo' and 'daily' tasks for the best Levenshtein match to `message`.
+    Returns a dict with 'id', 'title' and 'score'. Raises if best score < threshold.
     """
     best_score = 0
-    best_task = None
+    best_task: Optional[Dict[str, Any]] = None
 
     for t in tasks:
-        ttype = t.get("type")
-        if ttype not in ("todo", "daily"):
+        if t.get("type") not in ("todo", "daily"):
             continue
         title = t.get("text", "")
         score = fuzz.ratio(message, title)
@@ -31,12 +30,16 @@ def find_task_by_message(tasks, message):
             best_score = score
             best_task = t
 
-    if not best_task or best_score < 80:
+    if not best_task or best_score < threshold:
         raise Exception(f"No matching task found for '{message}'. Best score: {best_score}%.")
 
-    return {"id": best_task.get("_id"), "title": best_task.get("text"), "score": best_score}
+    return {"id": best_task["_id"], "title": best_task["text"], "score": best_score}
 
-def get_tasks():
+
+def get_tasks() -> List[Dict[str, Any]]:
+    """
+    Fetches all user tasks from Habitica and returns them as a list of dicts.
+    """
     url = "https://habitica.com/api/v3/tasks/user"
     response = requests.get(url, headers=HEADERS)
     if response.status_code == 200:
@@ -44,10 +47,10 @@ def get_tasks():
     else:
         raise Exception(f"Error fetching tasks: {response.status_code}")
 
-def format_tasks(tasks):
+
+def format_tasks(tasks: List[Dict[str, Any]]) -> str:
     """
-    Formats tasks into a single string for use in the GPT prompt.
-    Processes both 'todo' and 'daily' tasks.
+    Formats 'todo' and 'daily' tasks into a single semicolon-separated string.
     """
     priority_mapping = {
         0.1: "Trivial",
@@ -56,57 +59,45 @@ def format_tasks(tasks):
         2: "Hard"
     }
 
-    todos_text = []
+    todos_text: List[str] = []
     for task in tasks:
         if task.get("type") == "todo":
-            id = task.get("_id")
             due_date = task.get("date")
             date_str = due_date if due_date else "no due date"
             status = "Done" if task.get("completed") else "To do"
             priority_value = task.get("priority", 1)
             priority_label = priority_mapping.get(priority_value, "Unknown")
-            task_info = (
-                f"{task.get('text')} (todo) - {status} - "
+            todos_text.append(
+                f"{task['text']} (todo) - {status} - "
                 f"Priority: {priority_label} - Due: {date_str}"
             )
-            todos_text.append(task_info)
 
-    dailies_text = []
+    dailies_text: List[str] = []
     for task in tasks:
         if task.get("type") == "daily":
             is_due = task.get("isDue", False)
             completed = task.get("completed", False)
-
             if is_due and not completed:
-                status_emoji = "⌛"
-                status_text = "To do today"
+                status_emoji, status_text = "⌛", "To do today"
             elif is_due and completed:
-                status_emoji = "✅"
-                status_text = "Done today"
-            elif not is_due and completed:
-                status_emoji = "✅"
-                status_text = "Done (not due today)"
+                status_emoji, status_text = "✅", "Done today"
+            elif completed:
+                status_emoji, status_text = "✅", "Done (not due today)"
             else:
-                status_emoji = "🔵"
-                status_text = "Not due today"
+                status_emoji, status_text = "🔵", "Not due today"
+            dailies_text.append(f"{status_emoji} {task['text']} (daily) - {status_text}")
 
-            task_info = f"{status_emoji} {task.get('text')} (daily) - {status_text}"
-            dailies_text.append(task_info)
+    return ";".join(todos_text + dailies_text)
 
-    # Combine both lists with semicolon separators
-    tasks_text = ";".join(todos_text) + ";" + ";".join(dailies_text)
-    return tasks_text
 
-def create_task_todo(text, notes="", priority=1, iso_date=None):
+def create_task_todo(text: str, notes: str = "", priority: float = 1, iso_date: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Creates a new 'todo' task. Returns the created task data.
+    """
     url = "https://habitica.com/api/v3/tasks/user"
-    payload = {
-        "type": "todo",
-        "text": text,
-        "notes": notes,
-        "priority": priority
-    }
+    payload = {"type": "todo", "text": text, "notes": notes, "priority": priority}
     if iso_date:
-        payload["date"] = iso_date  # Ex: "2025-04-20T12:00:00.000Z"
+        payload["date"] = iso_date
 
     response = requests.post(url, headers=HEADERS, json=payload)
     if response.status_code != 201:
@@ -114,7 +105,11 @@ def create_task_todo(text, notes="", priority=1, iso_date=None):
 
     return response.json()["data"]
 
-def complete_task(task_id):
+
+def complete_task(task_id: str) -> Dict[str, Any]:
+    """
+    Marks the specified task as completed. Returns the updated task data.
+    """
     url = f"https://habitica.com/api/v3/tasks/{task_id}/score/up"
     response = requests.post(url, headers=HEADERS)
     if response.status_code != 200:

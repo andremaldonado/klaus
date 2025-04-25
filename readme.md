@@ -1,23 +1,19 @@
-# Habitica Task Assistant
+# Klaus Task Assistant
 
-This project integrates with Habitica to fetch and process user tasks, then uses OpenAI's GPT-4.1 (or similar model) to generate suggestions based on the tasks. The project supports a Telegram-based front-end through which users can interact with the assistant, but it is designed in a modular fashion to allow additional front-ends.
+Klaus is a cloud-native, modular Telegram bot that integrates with Habitica’s API and Google’s Gemini (Vertex AI) to manage “todo” and “daily” tasks through natural-language commands. It interprets user messages to check status, create new tasks, or mark tasks as complete—using fuzzy matching to handle approximate titles—and generates AI-driven suggestions and free-form chat responses.
 
 ## Project Structure
 
+```
 .
 ├── main.py                      # Entry point for Cloud Functions (HTTP request dispatcher)
-
 ├── habitica_api.py              # Module to interact with Habitica API and format tasks
-
 ├── ai_assistant.py              # Module to generate suggestions via ChatGPT
-
 ├── handlers
-
 │   └── telegram_handler.py      # Telegram-specific request handler
-
 ├── requirements.txt             # Python package dependencies
-
 └── README.md                    # Project documentation and best practices
+```
 
 ## Environment Variables
 
@@ -29,7 +25,8 @@ For the correct functioning of the project, make sure to set the following envir
 - **TELEGRAM_BOT_TOKEN**: The token for your Telegram bot.
 - **TELEGRAM_SECRET_TOKEN**: A secret token used to validate incoming Telegram requests.
 - **TELEGRAM_ALLOWED_CHAT_IDS**: List of allowed chat IDS that can use this bot on telegram
-
+- **DB_PROJECT_ID**: Name of the project in GCP
+- **DB_NAME**: Name of the database
 ## Best Practices
 
 - **Separation of Concerns**:  
@@ -70,6 +67,9 @@ export HABITICA_API_TOKEN="your_habitica_api_token"
 export GEMINI_API_KEY="your_gemini_api_key"
 export TELEGRAM_BOT_TOKEN="your_telegram_bot_token"
 export TELEGRAM_SECRET_TOKEN="your_telegram_secret_token"
+export TELEGRAM_ALLOWED_CHAT_IDS="your_allowed_telegram_chats"
+export DB_PROJECT_ID="your_gcp_project_id"
+export DB_NAME="your_database_name_on_gcp"
 ```
 
 Alternatively, you can use a .env file with a tool like python-dotenv.
