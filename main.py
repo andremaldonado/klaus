@@ -1,88 +1,105 @@
 import functions_framework
 from datetime import datetime, timedelta
-from habitica_api import get_tasks, find_task_by_message, create_task_todo, complete_task
-from ai_assistant import generate_chatgpt_suggestion, interpret_user_message, chat
+from data.memory import save_message, get_latest_messages
+from externals.habitica_api import get_tasks, find_task_by_message, create_task_todo, complete_task
+from ai_assistant import generate_tasks_suggestion, interpret_user_message, chat
 from handlers.telegram_handler import validate_telegram_request, send_telegram_message
+
+# Constants
+PRIORITY_MAP = {"low": 0.1, "medium": 1, "high": 2}
+
+
+def _parse_iso_date(date_text: str) -> str | None:
+    """
+    Converts Portuguese date keywords into an ISO-8601 string.
+    Supports 'hoje' and 'amanhã'.
+    """
+    if not date_text:
+        return None
+    now = datetime.now()
+    key = date_text.strip().lower()
+    if key == "hoje":
+        return now.isoformat() + "Z"
+    if key == "amanhã":
+        return (now + timedelta(days=1)).isoformat() + "Z"
+    return None
+
+
+def _handle_task_status(user_message: str) -> str:
+    tasks = get_tasks()
+    return generate_tasks_suggestion(tasks, user_message)
+
+
+def _handle_new_task(interpretation: dict, user_message: str) -> str:
+    title = interpretation.get("task") or user_message
+    priority = PRIORITY_MAP.get(interpretation.get("priority"), 1)
+    iso_date = _parse_iso_date(interpretation.get("date"))
+    create_task_todo(title, notes="", priority=priority, iso_date=iso_date)
+    return "Tarefa criada! Vamos em frente!"
+
+
+def _handle_task_conclusion(interpretation: dict) -> str:
+    title = interpretation.get("task")
+    tasks = get_tasks()
+    match = find_task_by_message(tasks, title)
+    complete_task(match["id"])
+    return f"Tarefa \"{match['title']}\" concluída! Bom trabalho!"
+
 
 @functions_framework.http
 def webhook(request):
-    """
-    Entry point for HTTP requests.
-    First, validates the request if it comes from Telegram.
-    Then, interprets the user message and, based on its type:
-      - For "task_status": fetch tasks and generate a GPT suggestion.
-      - For "new_task": creates a new task using Habitica's API.
-      - Otherwise: returns a message indicating that the message is unrelated.
-    For Telegram requests, the response is also sent via Telegram.
-    """
-
     source = request.args.get("source", "telegram").lower()
-    
+
+    # Validate Telegram source
     telegram_chat_id = None
     if source == "telegram":
         validation = validate_telegram_request(request)
-        if not validation.get("valid"):
-            return validation.get("message"), validation.get("status_code")
-        telegram_chat_id = validation.get("chat_id")
-    
+        if not validation["valid"]:
+            return validation["message"], validation["status_code"]
+        telegram_chat_id = validation["chat_id"]
+
     try:
-        body = request.get_json(silent=True)
-        if not body:
-            return "No body", 400
-
-        user_message = body.get("message", "")
-        user_message = user_message.get("text", "What are my tasks?")
-
-        # First, interpret the user message (for any source)
-        interpretation = interpret_user_message(user_message)
-        message_type = interpretation.get("type")
-
-        response_message = ""
+        body = request.get_json(silent=True) or {}
+        # Extract user text from either {"message": {"text": ...}} or {"text": ...}
+        user_message = (
+            body.get("message", {}).get("text")
+            or body.get("text")
+            or ""
+        )
+        if not user_message:
+            return "No text provided", 400
         
-        if message_type == "task_status":
-            tasks = get_tasks()
-            response_message = generate_chatgpt_suggestion(tasks, user_message)
-        elif message_type == "new_task":
-            # For task creation, extract the task title, priority and date from the interpretation
-            task_title = interpretation.get("task") or user_message
-            
-            # Map priority string to numeric value.
-            priority_text = interpretation.get("priority")
-            priority_mapping = {"low": 0.1, "medium": 1, "high": 2}
-            priority_value = priority_mapping.get(priority_text, 1)
-            
-            # Convert date from natural language to ISO format if possible.
-            date_text = interpretation.get("date")
-            iso_date = None
-            if date_text:
-                dt_now = datetime.now()
-                if date_text.lower() == "hoje":
-                    iso_date = dt_now.isoformat() + "Z"
-                elif date_text.lower() == "amanhã":
-                    iso_date = (dt_now + timedelta(days=1)).isoformat() + "Z"
-            
-            # Create the new task using Habitica API.
-            created_task = create_task_todo(task_title, notes="", priority=priority_value, iso_date=iso_date)
-            response_message = "Tarefa criada! Vamos em frente!"
-        elif message_type == "task_conclusion":
-            task_title = interpretation.get("task")
-            # Find out which task to mark as completed.
-            tasks = get_tasks()
-            task = find_task_by_message(tasks, task_title)
-            task_id = task.get("id")
-            # Mark the task as completed using Habitica API.
-            complete_task(task_id)
-            response_message = f"Tarefa \"{task.get('title')}\" concluída! Bom trabalho!"
-        else:
-            response_message = chat(user_message)
+        # Save user message to the database
+        save_message("user", user_message)
 
-        # If source is telegram, send the message via Telegram.
-        if source == "telegram" and telegram_chat_id:
-            send_telegram_message(telegram_chat_id, response_message)
+        # Interpret intent
+        intent = interpret_user_message(user_message)["type"]
+
+        # Dispatch based on intent
+        if intent == "task_status":
+            response = _handle_task_status(user_message)
+        elif intent == "new_task":
+            interp = interpret_user_message(user_message)
+            response = _handle_new_task(interp, user_message)
+        elif intent == "task_conclusion":
+            interp = interpret_user_message(user_message)
+            response = _handle_task_conclusion(interp)
+        else:
+            context = get_latest_messages()
+            context = [msg["text"] for msg in context]
+            response = chat(user_message, context)
+
+        # Save assistant response to the database
+        save_message("assistant", response)
+
+        # Return or send via Telegram
+        if source == "telegram":
+            send_telegram_message(telegram_chat_id, response)
             return "Message sent via Telegram.", 200
 
-        # For non-Telegram sources, return the response in the HTTP body.
-        return response_message, 200
+        return response, 200
 
     except Exception as e:
-        return f"Error: {str(e)}", 500
+        # For Telegram, we catch and return 200 so Telegram doesn't retry
+        code = 200 if source == "telegram" else 500
+        return f"Error: {e}", code

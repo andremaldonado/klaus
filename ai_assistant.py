@@ -2,9 +2,10 @@ import os
 import json
 from datetime import datetime
 from google import genai
-from habitica_api import format_tasks
+from externals.habitica_api import format_tasks
+from typing import List, Dict, Any
 
-def chat(message):
+def chat(message: str, context: str) -> str:
     """
     Generates a message using the Gemini API based on the provided user message.
     """
@@ -20,6 +21,8 @@ def chat(message):
         "- Use emojis para indicar prioridade e status.\n\n"
         f"Hoje é {today_date}.\n"
         "Na mensagem a seguir, o usuário quer apenas conversar.\n"
+        "O contexto de suas conversas anteriores é o seguinte:\n"
+        f"{context}\n\n"
         "Sinta-se à vontade para responder como quiser, fazer perguntas ou dar sugestões.\n"
         "Abaixo está a mensagem do usuário:\n"
     )
@@ -37,7 +40,8 @@ def chat(message):
 
     return response.text
 
-def generate_chatgpt_suggestion(tasks, user_context):
+
+def generate_tasks_suggestion(tasks: List[Dict[str, Any]], user_context: str) -> str:
     """
     Generates a suggestion using ChatGPT based on the provided tasks and user context.
     """
@@ -76,7 +80,8 @@ def generate_chatgpt_suggestion(tasks, user_context):
 
     return response.text
 
-def interpret_user_message(user_message):
+
+def interpret_user_message(user_message: str) -> Dict[str, Any]:
     """
     Interprets the user message to determine whether it refers to a new task creation,
     a request for task status, or is unrelated. It returns a structured JSON with
@@ -115,7 +120,7 @@ def interpret_user_message(user_message):
 
         Seja rigoroso em sua classificação. Se uma mensagem for ambígua ou não se referir claramente a uma tarefa ou ao seu status, classifique-a como "unrelated".
 
-        Ao extrair a prioridade, considere não apenas palavras‑chave explícitas, mas também a urgência implícita no tom. Por exemplo:
+        Ao extrair a prioridade, considere não apenas palavras-chave explícitas, mas também a urgência implícita no tom. Por exemplo:
 
         - "preciso muito", "urgente", "o quanto antes" → high  
         - "se possível", "talvez", "mais tarde" → low

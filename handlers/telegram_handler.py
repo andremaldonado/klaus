@@ -1,7 +1,8 @@
 import os
 import requests
-from habitica_api import get_tasks
-from ai_assistant import generate_chatgpt_suggestion
+from typing import Any, Dict
+from externals.habitica_api import get_tasks
+from ai_assistant import generate_tasks_suggestion
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_SECRET_TOKEN = os.getenv("TELEGRAM_SECRET_TOKEN")
@@ -15,10 +16,11 @@ ALLOWED_CHAT_IDS = {
     for chat_id in allowed_ids_str.split(",") if chat_id.strip()
 }
 
-def validate_telegram_request(request):
+
+def validate_telegram_request(request: Any) -> Dict[str, Any]:
     """
     Validates the Telegram request.
-    
+
     Returns a dictionary containing:
       - valid: (bool) whether the request is valid.
       - status_code: (int) appropriate HTTP status code.
@@ -33,11 +35,11 @@ def validate_telegram_request(request):
     body = request.get_json(silent=True)
     if not body or "message" not in body:
         return {"valid": False, "status_code": 400, "message": "Bad Request: Missing message data."}
-    
+
     message = body.get("message")
     if not message:
         return {"valid": False, "status_code": 400, "message": "Bad Request: Message not provided."}
-    
+
     chat = message.get("chat")
     if not chat or not chat.get("id"):
         return {"valid": False, "status_code": 400, "message": "Bad Request: Invalid chat data."}
@@ -50,7 +52,8 @@ def validate_telegram_request(request):
     text = message.get("text", "What are my tasks?")
     return {"valid": True, "status_code": 200, "chat_id": chat_id, "text": text}
 
-def send_telegram_message(chat_id, text):
+
+def send_telegram_message(chat_id: int, text: str) -> None:
     """
     Sends a message to the specified Telegram chat.
     """
