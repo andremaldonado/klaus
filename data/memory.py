@@ -14,7 +14,9 @@ firestore_client = firestore.Client(project=os.getenv("DB_PROJECT_ID"), database
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 # ChromaDB Configuration
-chroma_client = chromadb.PersistentClient("/storage/chroma")
+storage_path = os.getenv("CHROMA_STORAGE_PATH", "./storage/chroma")
+os.makedirs(storage_path, exist_ok=True)
+chroma_client = chromadb.PersistentClient(path=storage_path)
 collection = chroma_client.get_or_create_collection(name="memories")
 
 
