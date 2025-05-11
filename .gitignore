@@ -133,6 +133,8 @@ celerybeat.pid
 .venv
 env/
 venv/
+my-env/
+db-chroma/
 ENV/
 env.bak/
 venv.bak/

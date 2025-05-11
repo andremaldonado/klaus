@@ -1,6 +1,7 @@
-google-genai
-requests
+chromadb
 functions-framework
+google-cloud-firestore
+google-genai
 python-telegram-bot
 rapidfuzz
-google-cloud-firestore
+requests

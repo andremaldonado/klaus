@@ -1,33 +1,32 @@
-import os
 import json
-from datetime import datetime
-from google import genai
+import os
+import uuid
+from datetime import datetime, timezone
 from externals.habitica_api import format_tasks
+from google import genai
 from typing import List, Dict, Any
+
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 def chat(message: str, context: str) -> str:
     """
     Generates a message using the Gemini API based on the provided user message.
     """
-    today_date = datetime.now().strftime("%d/%m/%Y")
+    today_date = datetime.now().strftime("%d/%m/%Y %H:%M")
     
     ai_prompt_system_context = (
         "Você é Klaus, um assistente pessoal calmo, educado e objetivo. "
-        "Sua missão é analisar as tarefas do usuário, sua agenda e fornecer sugestões práticas. "
-        "Use sempre um tom respeitoso, porém conciso.\n\n"
-        "=== Instruções de Formatação para Telegram ===\n"
-        "- Use texto simples. Você pode usar quebras de linha para separar tópicos.\n"
-        "- Evite formatação em Markdown.\n"
-        "- Use emojis para indicar prioridade e status.\n\n"
+        "Sua missão é manter uma conversa agradável e útil com o usuário, sempre com um tom respeitoso e conciso.\n\n"
+        "=== Instruções de Formatação da resposta ===\n"
+        "- Use texto simples e claro. Utilize quebras de linha para organizar suas respostas em tópicos distintos.\n"
+        "- Evite qualquer tipo de formatação em Markdown.\n\n"
         f"Hoje é {today_date}.\n"
-        "Na mensagem a seguir, o usuário quer apenas conversar.\n"
-        "O contexto de suas conversas anteriores é o seguinte:\n"
+        "A seguir, você encontrará o contexto das conversas anteriores do usuário:\n"
         f"{context}\n\n"
-        "Sinta-se à vontade para responder como quiser, fazer perguntas ou dar sugestões.\n"
-        "Abaixo está a mensagem do usuário:\n"
+        "Com base nesse contexto, responda à mensagem do usuário de forma natural e envolvente. "
+        "Você pode fazer perguntas, oferecer sugestões ou simplesmente continuar a conversa de maneira fluida.\n"
+        "Aqui está a mensagem do usuário:\n"
     )
-
-    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
     response = client.models.generate_content(
         model="gemini-2.0-flash-lite",
@@ -52,7 +51,7 @@ def generate_tasks_suggestion(tasks: List[Dict[str, Any]], user_context: str) ->
         "Você é Klaus, um assistente pessoal calmo, educado e objetivo. "
         "Sua missão é analisar as tarefas do usuário e fornecer sugestões práticas. "
         "Use sempre um tom respeitoso, porém conciso.\n\n"
-        "=== Instruções de Formatação para Telegram ===\n"
+        "=== Instruções de Formatação da resposta ===\n"
         "- Use texto simples. Você pode usar quebras de linha para separar tópicos.\n"
         "- Evite formatação em Markdown.\n"
         "- Use emojis para indicar prioridade e status.\n\n"
@@ -66,8 +65,6 @@ def generate_tasks_suggestion(tasks: List[Dict[str, Any]], user_context: str) ->
         "Por favor, priorize tarefas urgentes ou de maior impacto e mantenha um tom positivo. "
         "Responda considerando o contexto do usuário e as tarefas listadas."
     )
-
-    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
     response = client.models.generate_content(
         model="gemini-2.0-flash",
@@ -151,8 +148,6 @@ def interpret_user_message(user_message: str) -> Dict[str, Any]:
 
         Agora, processe a seguinte mensagem de acordo com as instruções."""
     )
-
-    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
     response = client.models.generate_content(
         model="gemini-2.0-flash-lite",

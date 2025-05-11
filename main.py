@@ -1,6 +1,6 @@
 import functions_framework
 from datetime import datetime, timedelta
-from data.memory import save_message, get_latest_messages
+from data.memory import save_message, save_embedding, fetch_similar_memories
 from externals.habitica_api import get_tasks, find_task_by_message, create_task_todo, complete_task
 from ai_assistant import generate_tasks_suggestion, interpret_user_message, chat
 from handlers.telegram_handler import validate_telegram_request, send_telegram_message
@@ -46,6 +46,25 @@ def _handle_task_conclusion(interpretation: dict) -> str:
     return f"Tarefa \"{match['title']}\" concluída! Bom trabalho!"
 
 
+def _handle_general_chat(user_message: str) -> str:
+    # Save user message and embedding to the database
+    message_id, saved_data = save_message("user1", user_message)
+    save_embedding(user_message, "user1", message_id)
+    # Fetch context for the chat
+    relevant_memories = fetch_similar_memories(user_message)
+    memory_block = "\n".join(relevant_memories)
+    #TODO:
+    # 3. Update readme with new env vars
+    # 4. Create the new envvars in production
+    # 5. Implement chromaDB in production
+    # 6. Deploy and test
+    # Fetch latest messages for context
+    response = chat(user_message, memory_block)
+    # Save assistant response to the database
+    save_message("assistant", response)
+    return response
+
+
 @functions_framework.http
 def webhook(request):
     source = request.args.get("source", "telegram").lower()
@@ -68,9 +87,6 @@ def webhook(request):
         )
         if not user_message:
             return "No text provided", 400
-        
-        # Save user message to the database
-        save_message("user", user_message)
 
         # Interpret intent
         intent = interpret_user_message(user_message)["type"]
@@ -85,12 +101,7 @@ def webhook(request):
             interp = interpret_user_message(user_message)
             response = _handle_task_conclusion(interp)
         else:
-            context = get_latest_messages()
-            context = [msg["text"] for msg in context]
-            response = chat(user_message, context)
-
-        # Save assistant response to the database
-        save_message("assistant", response)
+            response = _handle_general_chat(user_message)
 
         # Return or send via Telegram
         if source == "telegram":
