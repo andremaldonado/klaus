@@ -3,9 +3,9 @@
 [![Python](https://img.shields.io/badge/python-3.9+-blue)]()
 [![License](https://img.shields.io/badge/license-MIT-green)]()
 
-Klaus is a cloud-native Telegram bot (and HTTP API) that helps you manage your Habitica **todo** and **daily** tasks via natural-language commands. Under the hood it uses:
+Klaus is a cloud-native bot that helps you manage your tasks via natural-language commands. Under the hood it uses:
 
-- **Habitica API** to fetch, create and complete tasks  
+- **Habitica API** to fetch, create and complete tasks 
 - **Google Gemini (Vertex AI)** for NLP: intent classification & task suggestions  
 - **RapidFuzz** for fuzzy matching approximate task titles  
 - **Firestore** & **ChromaDB** for conversational memory and embeddings  
@@ -58,7 +58,7 @@ In the future, it will be much more.
   - Firestore enabled  
   - A (writable) GCS bucket or persistent volume for ChromaDB  
 - Habitica account + API token  
-- Telegram bot token & secret  
+- Telegram bot token & secret (or any other simple frontend)
 
 ---
 
@@ -69,11 +69,12 @@ In the future, it will be much more.
 | `HABITICA_USER_ID`            | Your Habitica user ID                              |
 | `HABITICA_API_TOKEN`          | Your Habitica API token                            |
 | `GEMINI_API_KEY`              | Your Vertex AI (Gemini) API key                    |
-| `TELEGRAM_BOT_TOKEN`          | Telegram Bot token                                  |
-| `TELEGRAM_SECRET_TOKEN`       | Telegram webhook secret                             |
-| `TELEGRAM_ALLOWED_CHAT_IDS`   | Comma-separated list of allowed Telegram chat IDs   |
-| `DB_PROJECT_ID`               | GCP project ID for Firestore                        |
-| `DB_NAME`                     | Firestore database name                             |
+| `TELEGRAM_BOT_TOKEN`          | Telegram Bot token                                 |
+| `TELEGRAM_SECRET_TOKEN`       | Telegram webhook secret                            |
+| `TELEGRAM_ALLOWED_CHAT_IDS`   | Comma-separated list of allowed Telegram chat IDs  |
+| `DB_PROJECT_ID`               | GCP project ID for Firestore                       |
+| `DB_NAME`                     | Firestore database name                            |
+| `CHROMA_STORAGE_PATH`         | Path of mounted volume                             |
 
 ---
 

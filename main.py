@@ -53,15 +53,10 @@ def _handle_general_chat(user_message: str) -> str:
     # Fetch context for the chat
     relevant_memories = fetch_similar_memories(user_message)
     memory_block = "\n".join(relevant_memories)
-    #TODO:
-    # 3. Update readme with new env vars
-    # 4. Create the new envvars in production
-    # 5. Implement chromaDB in production
-    # 6. Deploy and test
-    # Fetch latest messages for context
     response = chat(user_message, memory_block)
     # Save assistant response to the database
     save_message("assistant", response)
+    # TODO: save embedding of assistant response
     return response
 
 
