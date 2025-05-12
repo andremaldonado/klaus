@@ -13,11 +13,12 @@ firestore_client = firestore.Client(project=os.getenv("DB_PROJECT_ID"), database
 # AI Configuration
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-# ChromaDB Configuration
-storage_path = os.getenv("CHROMA_STORAGE_PATH", "./storage/chroma")
-os.makedirs(storage_path, exist_ok=True)
-chroma_client = chromadb.PersistentClient(path=storage_path)
-collection = chroma_client.get_or_create_collection(name="memories")
+
+def get_chroma_client(chat_id: str) -> chromadb.api.models.Collection:
+    storage_path = os.getenv("CHROMA_STORAGE_PATH", "./storage/chroma")
+    user_path = os.path.join(storage_path, str(chat_id))
+    os.makedirs(user_path, exist_ok=True)
+    return chromadb.PersistentClient(path=user_path)
 
 
 def save_message(role: str, text: str) -> Tuple[str, Dict[str, Any]]:
@@ -38,6 +39,8 @@ def generate_embedding(text: str) -> List[float]:
 
 
 def save_embedding(text, chat_id, message_id):
+    chroma_client = get_chroma_client(chat_id)
+    collection = chroma_client.get_or_create_collection("memories")
     embedding = generate_embedding(text)
     uid = str(uuid.uuid4())
 
@@ -53,7 +56,9 @@ def save_embedding(text, chat_id, message_id):
     )
 
 
-def fetch_similar_memories(query_text: str, top_k: int = 3) -> List[str]:
+def fetch_similar_memories(chat_id, query_text: str, top_k: int = 3) -> List[str]:
+    chroma_client = get_chroma_client(chat_id)
+    collection = chroma_client.get_or_create_collection("memories")
     query_embedding = generate_embedding(query_text)
     results = collection.query(
         query_embeddings=[query_embedding],
