@@ -46,16 +46,16 @@ def _handle_task_conclusion(interpretation: dict) -> str:
     return f"Tarefa \"{match['title']}\" concluída! Bom trabalho!"
 
 
-def _handle_general_chat(user_message: str) -> str:
+def _handle_general_chat(chat_id: str, user_message: str) -> str:
     # Save user message and embedding to the database
-    message_id, saved_data = save_message("user1", user_message)
-    save_embedding(user_message, "user1", message_id)
+    message_id, saved_data = save_message(chat_id, user_message)
+    save_embedding(user_message, chat_id, message_id)
     # Fetch context for the chat
-    relevant_memories = fetch_similar_memories(user_message)
+    relevant_memories = fetch_similar_memories(chat_id, user_message)
     memory_block = "\n".join(relevant_memories)
     response = chat(user_message, memory_block)
     # Save assistant response to the database
-    save_message("assistant", response)
+    save_message(f"assistant_{chat_id}", response)
     # TODO: save embedding of assistant response
     return response
 
@@ -65,12 +65,15 @@ def webhook(request):
     source = request.args.get("source", "telegram").lower()
 
     # Validate Telegram source
-    telegram_chat_id = None
+    chat_id = None
     if source == "telegram":
         validation = validate_telegram_request(request)
         if not validation["valid"]:
             return validation["message"], validation["status_code"]
-        telegram_chat_id = validation["chat_id"]
+        chat_id = validation["chat_id"]
+
+    if chat_id is None:
+        chat_id = request.args.get("chat_id", "user1")
 
     try:
         body = request.get_json(silent=True) or {}
@@ -96,11 +99,11 @@ def webhook(request):
             interp = interpret_user_message(user_message)
             response = _handle_task_conclusion(interp)
         else:
-            response = _handle_general_chat(user_message)
+            response = _handle_general_chat(chat_id, user_message)
 
         # Return or send via Telegram
         if source == "telegram":
-            send_telegram_message(telegram_chat_id, response)
+            send_telegram_message(chat_id, response)
             return "Message sent via Telegram.", 200
 
         return response, 200
