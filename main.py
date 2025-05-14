@@ -37,13 +37,13 @@ def webhook(request):
 
         # Dispatch based on intent
         if intent == "calendar_auth":
-            return handle_calendar_auth(chat_id)
+            response = handle_calendar_auth(chat_id)
         elif intent == "calendar_code":
-            return handle_calendar_code(chat_id, message.get("details"))
+            response = handle_calendar_code(chat_id, message.get("details"))
         elif intent == "list_calendar":
-            return handle_list_calendar(chat_id)
+            response = handle_list_calendar(chat_id)
         elif intent == "create_calendar":
-            return handle_create_calendar(chat_id, message.get("title"), message.get("start_date"), message.get("end_date"))
+            response = handle_create_calendar(chat_id, message.get("title"), message.get("start_date"), message.get("end_date"))
         elif intent == "task_status":
             response = handle_task_status(chat_id, message.get("start_date"), user_message)
         elif intent == "new_task":
