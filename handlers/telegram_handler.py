@@ -1,8 +1,6 @@
 import os
 import requests
 from typing import Any, Dict
-from externals.habitica_api import get_tasks
-from ai_assistant import generate_tasks_suggestion
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_SECRET_TOKEN = os.getenv("TELEGRAM_SECRET_TOKEN")

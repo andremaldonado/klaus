@@ -1,18 +1,22 @@
 import json
 import os
-import uuid
+import pytz
 from datetime import datetime, timezone
 from externals.habitica_api import format_tasks
 from google import genai
 from typing import List, Dict, Any
 
+
+# Constants
+TIMEZONE = pytz.timezone(os.getenv("TIMEZONE", "America/Sao_Paulo"))
+
+# AI Configuration
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
+
 def chat(message: str, context: str) -> str:
-    """
-    Generates a message using the Gemini API based on the provided user message.
-    """
-    today_date = datetime.now().strftime("%d/%m/%Y %H:%M")
+    # Generates a message using the Gemini API based on the provided user message.
+    today_date = datetime.now(TIMEZONE).strftime("%d/%m/%Y %H:%M")
     
     ai_prompt_system_context = (
         "Você é Klaus, um assistente pessoal calmo, educado e objetivo. "
@@ -40,30 +44,32 @@ def chat(message: str, context: str) -> str:
     return response.text
 
 
-def generate_tasks_suggestion(tasks: List[Dict[str, Any]], user_context: str) -> str:
-    """
-    Generates a suggestion using ChatGPT based on the provided tasks and user context.
-    """
+def generate_tasks_suggestion(tasks: List[Dict[str, Any]], events: str, user_context: str) -> str:
+    # Generates a suggestion using ChatGPT based on the provided tasks and user context.
     tasks_text = format_tasks(tasks)
-    today_date = datetime.now().strftime("%d/%m/%Y")
+    today_date = datetime.now(TIMEZONE).strftime("%d/%m/%Y")
     
     ai_prompt_system_context = (
-        "Você é Klaus, um assistente pessoal calmo, educado e objetivo. "
-        "Sua missão é analisar as tarefas do usuário e fornecer sugestões práticas. "
+        "Você é Klaus, um assistente pessoal calmo, educado e objetivo.\n"
+        "Sua missão é analisar as tarefas do usuário e fornecer sugestões práticas.\n"
         "Use sempre um tom respeitoso, porém conciso.\n\n"
         "=== Instruções de Formatação da resposta ===\n"
         "- Use texto simples. Você pode usar quebras de linha para separar tópicos.\n"
         "- Evite formatação em Markdown.\n"
         "- Use emojis para indicar prioridade e status.\n\n"
+        "=== Instruções de Resposta ===\n"
         f"Hoje é {today_date}. Abaixo estão as tarefas do usuário, separadas por ponto e vírgula:\n"
         f"{tasks_text}\n\n"
-        "=== Exemplo de Resposta ===\n"
-        "Bom dia! Você tem algumas tarefas pendentes hoje. "
-        "Sugiro começar pelas tarefas com datas mais próximas ou já vencidas. "
-        "Em seguida, se tiver tempo, avance para as demais. "
-        "Evite deixar tarefas se acumularem por vários dias.\n\n"
-        "Por favor, priorize tarefas urgentes ou de maior impacto e mantenha um tom positivo. "
-        "Responda considerando o contexto do usuário e as tarefas listadas."
+        "Abaixo está a agenda do usuário:\n"
+        f"{events}\n\n"
+        "Responda considerando o contexto do usuário e as tarefas listadas.\n\n"
+        "=== EXEMPLO DE RESPOSTA ===\n"
+        "Bom dia! Você tem algumas tarefas pendentes hoje.\n"
+        "Sugiro começar pelas tarefas com datas mais próximas ou já vencidas.\n"
+        "Em seguida, se tiver tempo, avance para as demais.\n"
+        "Evite deixar tarefas se acumularem por vários dias.\n"
+        "Por favor, priorize tarefas urgentes ou de maior impacto e mantenha um tom positivo.\n"
+        "=== FIM DO EXEMPLO ===\n\n"
     )
 
     response = client.models.generate_content(
@@ -79,21 +85,13 @@ def generate_tasks_suggestion(tasks: List[Dict[str, Any]], user_context: str) ->
 
 
 def interpret_user_message(user_message: str) -> Dict[str, Any]:
-    """
-    Interprets the user message to determine whether it refers to a new task creation,
-    a request for task status, or is unrelated. It returns a structured JSON with
-    the following fields:
-    {
-      "message": [original user message],
-      "type": ["new_task" | "task_status" | "unrelated"],
-      "task": [brief task title or null],
-      "date": [date mentioned like "hoje", "amanhã", or null],
-      "priority": ["low" | "medium" | "high" | null]
-    }
-    """
+    # Interprets the user message to determine his intent or is unrelated. It returns a structured JSON with
+    # the following fields:
     
+    today_date = datetime.now(TIMEZONE).strftime("%d/%m/%Y %H:%M")
     ai_prompt_engineering_prompt = (
-        """Aja como um especialista em interpretação de linguagem natural e extração de informações a partir de mensagens de texto. Sua tarefa é classificar a intenção da mensagem do usuário e extrair informações relevantes.
+        f"""Aja como um especialista em interpretação de linguagem natural e extração de informações a partir de mensagens de texto. 
+        Sua tarefa é classificar a intenção da mensagem do usuário e extrair informações relevantes.
         INSTRUÇÃO
 
         Você receberá uma mensagem de usuário. Sua tarefa é determinar se a mensagem:
@@ -101,50 +99,76 @@ def interpret_user_message(user_message: str) -> Dict[str, Any]:
         - Refere-se à criação de uma nova tarefa.
         - Solicita o status de tarefas existentes.
         - Solicita a conclusão de uma tarefa.
+        - Solicita a conexão com o Google Calendar.
+        - Solicita a troca de código de autorização do Google Calendar.
+        - Solicita a listagem de eventos do Google Calendar.
+        - Solicita a criação de um evento no Google Calendar.
         - Não está relacionada a nenhuma das anteriores.
 
         Você DEVE extrair os seguintes campos e retorná-los em JSON no seguinte formato:
 
-        {
+        {{
         "message": [mensagem original do usuário],
         "type": ["new_task" | "task_status" | "task_conclusion" | "unrelated"],
-        "task": [título resumido da tarefa ou null],
-        "date": [data mencionada como "hoje", "amanhã" ou null],
+        "title": [título resumido da tarefa, nome do evento para o calendário ou null],
+        "start_date": [data de início do evento, no formato dd/mm/aaaa hh:mm ou null],
+        "end_date": [data de término do evento, no formato dd/mm/aaaa hh:mm ou null],
         "priority": ["low" | "medium" | "high" | null]
-        }
+        "details": [detalhes adicionais ou null]
+        }}
 
         É imprescindível que esse retorno não tenha nenhuma formatação, nem mesmo algo como ```json.
 
-        Seja rigoroso em sua classificação. Se uma mensagem for ambígua ou não se referir claramente a uma tarefa ou ao seu status, classifique-a como "unrelated".
+        Seja rigoroso em sua classificação. Se uma mensagem for ambígua ou não se referir claramente a uma tarefa, 
+        status de tarefa ou item de calendário, classifique-a como "unrelated".
 
         Ao extrair a prioridade, considere não apenas palavras-chave explícitas, mas também a urgência implícita no tom. Por exemplo:
 
         - "preciso muito", "urgente", "o quanto antes" → high  
         - "se possível", "talvez", "mais tarde" → low
 
-        Mantenha o texto original em português nos campos "message" e "date".
+        Mantenha o texto original em português nos campos "message" e "title". 
+        Para os campos start_date e end_date, use as datas que o usuário fornecer, as que coloquei no exemplo são apenas exemplos de formatação e não as datas que você precisa enviar.
 
         EXEMPLOS
 
         Usuário: "Preciso ir na academia hoje"  
-        Saída: { "message": "Preciso ir na academia hoje", "type": "new_task", "task": "ir na academia", "date": "hoje", "priority": null }
+        Saída: {{ "message": "Preciso ir na academia hoje", "type": "new_task", "title": "ir na academia", "start_date": "10/10/2023", "end_date": null, "priority": null, "details": null }}
 
         Usuário: "Quais tarefas minhas estão atrasadas?"  
-        Saída: { "message": "Quais tarefas minhas estão atrasadas?", "type": "task_status", "task": null, "date": null, "priority": null }
+        Saída: {{ "message": "Quais tarefas minhas estão atrasadas?", "type": "task_status", "title": null, "start_date": null, "end_date": null, "priority": null, "details": null }}
 
         Usuário: "Tenho tarefas para hoje? Quais?"  
-        Saída: { "message": "Tenho tarefas para hoje? Quais?", "type": "task_status", "task": null, "date": "hoje", "priority": null }
+        Saída: {{ "message": "Tenho tarefas para hoje? Quais?", "type": "task_status", "title": null, "start_date": "10/10/2023", "end_date": null, "priority": null, "details": null }}
 
         Usuário: "A pizza chegou"  
-        Saída: { "message": "A pizza chegou", "type": "unrelated", "task": null, "date": null, "priority": null }
+        Saída: {{ "message": "A pizza chegou", "type": "unrelated", "title": null, "start_date": null, "end_date": null, "priority": null, "details": null }}
 
         Usuário: "Terminei de ler o livro"
-        Saída: { "message": "Terminei de ler o livro", "type": "task_conclusion", "task": "ler o livro", "date": null, "priority": null }
+        Saída: {{ "message": "Terminei de ler o livro", "type": "task_conclusion", "title": "ler o livro", "start_date": null, "end_date": null, "priority": null, "details": null }}
 
         Usuário: "Já fiz a lição"
-        Saída: { "message": "Já fiz a lição", "type": "task_conclusion", "task": "lição", "date": null, "priority": null }
+        Saída: {{ "message": "Já fiz a lição", "type": "task_conclusion", "title": "lição", "start_date": null, "end_date": null, "priority": null, "details": null }}
+
+        Usuário: "quero conectar minha agenda"
+        Saída: {{ "message": "quero conectar minha agenda", "type": "calendar_auth", "title": null, "start_date": null, "end_date": null, "priority": null, "details": null }}
+
+        Usuário: “meu código é [código]”
+        Saída: {{ "message": "meu código é [código]", "type": "calendar_code", "title": null, "start_date": null, "end_date": null, "priority": null, "details": "[código]" }}
+
+        Usuário: "Quais eventos tenho hoje?"
+        Saída: {{ "message": "Quais eventos tenho hoje?", "type": "list_calendar", "title": null, "start_date": "10/05/2024", "end_date": null, "priority": null, "details": null }}
+
+        Usuário: "Preciso cortar o cabelo amanhã às 15:00"
+        Saída: {{ "message": "Preciso cortar o cabelo amanhã às 15:00", "type": "create_calendar", "title": "cortar o cabelo", "start_date": "11/07/2025 15:00", "end_date": null, "priority": null, "details": null }}
+
+        Usuário: "Reunião de trabalho das 14:00 às 15:30 no dia 10/10/2023"
+        Saída: {{ "message": "Reunião de trabalho das 14:00 às 15:30 no dia 10/10/2023", "type": "create_calendar", "title": "Reunião de trabalho", "start_date": "10/10/2023 14:00", "end_date": "10/10/2023 15:30", "priority": null, "details": null }}
 
         FIM
+
+        Informações adicionais que podem ser relevantes:
+         - Hoje é dia {today_date}
 
         Agora, processe a seguinte mensagem de acordo com as instruções."""
     )
@@ -165,8 +189,10 @@ def interpret_user_message(user_message: str) -> Dict[str, Any]:
         result = {
             "message": user_message,
             "type": "unrelated",
-            "task": None,
-            "date": None,
-            "priority": None
+            "title": None,
+            "start_date": None,
+            "end_date": None,
+            "priority": None,
+            "details": None
         }
     return result

@@ -1,11 +1,15 @@
 import chromadb
 import os
 import uuid
+import pytz
 from datetime import datetime, timezone
 from google import genai
 from google.cloud import firestore
 from typing import Tuple, Dict, Any, List, Optional
 
+
+# Constants
+TIMEZONE = pytz.timezone(os.getenv("TIMEZONE", "America/Sao_Paulo"))
 
 # Database configuration
 firestore_client = firestore.Client(project=os.getenv("DB_PROJECT_ID"), database=os.getenv("DB_NAME"))
@@ -25,7 +29,7 @@ def save_message(role: str, text: str) -> Tuple[str, Dict[str, Any]]:
     data = {
         "role": role,
         "text": text,
-        "timestamp": datetime.now(timezone.utc).isoformat()
+        "timestamp": datetime.now(TIMEZONE).isoformat()
     }
     doc_ref = firestore_client.collection("messages").add(data)
     return doc_ref[1].id, data
@@ -50,7 +54,7 @@ def save_embedding(text, chat_id, message_id):
         metadatas=[{
             "chat_id": chat_id,
             "message_id": message_id,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(TIMEZONE).isoformat()
         }],
         ids=[uid]
     )
