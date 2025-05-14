@@ -61,6 +61,7 @@ def webhook(request):
         return response, 200
 
     except Exception as e:
+        send_telegram_message(chat_id, f"Estou passando por dificuldades. Tente novamente mais tarde. Erro: {e}")
         # For Telegram, we catch and return 200 so Telegram doesn't retry
         code = 200 if source == "telegram" else 500
         return f"Error: {e}", code
