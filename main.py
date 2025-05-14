@@ -1,63 +1,8 @@
 import functions_framework
-from datetime import datetime, timedelta
-from data.memory import save_message, save_embedding, fetch_similar_memories
-from externals.habitica_api import get_tasks, find_task_by_message, create_task_todo, complete_task
-from ai_assistant import generate_tasks_suggestion, interpret_user_message, chat
+from ai_assistant import interpret_user_message
+from datetime import datetime, timedelta, timezone
 from handlers.telegram_handler import validate_telegram_request, send_telegram_message
-
-# Constants
-PRIORITY_MAP = {"low": 0.1, "medium": 1, "high": 2}
-
-
-def _parse_iso_date(date_text: str) -> str | None:
-    """
-    Converts Portuguese date keywords into an ISO-8601 string.
-    Supports 'hoje' and 'amanhã'.
-    """
-    if not date_text:
-        return None
-    now = datetime.now()
-    key = date_text.strip().lower()
-    if key == "hoje":
-        return now.isoformat() + "Z"
-    if key == "amanhã":
-        return (now + timedelta(days=1)).isoformat() + "Z"
-    return None
-
-
-def _handle_task_status(user_message: str) -> str:
-    tasks = get_tasks()
-    return generate_tasks_suggestion(tasks, user_message)
-
-
-def _handle_new_task(interpretation: dict, user_message: str) -> str:
-    title = interpretation.get("task") or user_message
-    priority = PRIORITY_MAP.get(interpretation.get("priority"), 1)
-    iso_date = _parse_iso_date(interpretation.get("date"))
-    create_task_todo(title, notes="", priority=priority, iso_date=iso_date)
-    return "Tarefa criada! Vamos em frente!"
-
-
-def _handle_task_conclusion(interpretation: dict) -> str:
-    title = interpretation.get("task")
-    tasks = get_tasks()
-    match = find_task_by_message(tasks, title)
-    complete_task(match["id"])
-    return f"Tarefa \"{match['title']}\" concluída! Bom trabalho!"
-
-
-def _handle_general_chat(chat_id: str, user_message: str) -> str:
-    # Save user message and embedding to the database
-    message_id, saved_data = save_message(chat_id, user_message)
-    save_embedding(user_message, chat_id, message_id)
-    # Fetch context for the chat
-    relevant_memories = fetch_similar_memories(chat_id, user_message)
-    memory_block = "\n".join(relevant_memories)
-    response = chat(user_message, memory_block)
-    # Save assistant response to the database
-    save_message(f"assistant_{chat_id}", response)
-    # TODO: save embedding of assistant response
-    return response
+from handlers.handlers import handle_task_status, handle_new_task, handle_task_conclusion, handle_general_chat, handle_calendar_auth, handle_calendar_code, handle_list_calendar, handle_create_calendar
 
 
 @functions_framework.http
@@ -87,19 +32,26 @@ def webhook(request):
             return "No text provided", 400
 
         # Interpret intent
-        intent = interpret_user_message(user_message)["type"]
+        message = interpret_user_message(user_message)
+        intent = message.get("type")
 
         # Dispatch based on intent
-        if intent == "task_status":
-            response = _handle_task_status(user_message)
+        if intent == "calendar_auth":
+            return handle_calendar_auth(chat_id)
+        elif intent == "calendar_code":
+            return handle_calendar_code(chat_id, message.get("details"))
+        elif intent == "list_calendar":
+            return handle_list_calendar(chat_id)
+        elif intent == "create_calendar":
+            return handle_create_calendar(chat_id, message.get("title"), message.get("start_date"), message.get("end_date"))
+        elif intent == "task_status":
+            response = handle_task_status(chat_id, message.get("start_date"), user_message)
         elif intent == "new_task":
-            interp = interpret_user_message(user_message)
-            response = _handle_new_task(interp, user_message)
+            response = handle_new_task(message.get("title"), message.get("priority"), message.get("start_date"), user_message)
         elif intent == "task_conclusion":
-            interp = interpret_user_message(user_message)
-            response = _handle_task_conclusion(interp)
+            response = handle_task_conclusion(message.get("title"))
         else:
-            response = _handle_general_chat(chat_id, user_message)
+            response = handle_general_chat(chat_id, user_message)
 
         # Return or send via Telegram
         if source == "telegram":

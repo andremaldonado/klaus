@@ -1,10 +1,15 @@
 import requests
 import os
+import pytz
 from rapidfuzz import fuzz
 from typing import Any, Dict, List, Optional
+from datetime import datetime
 
+
+# Constants
 USER_ID = os.environ.get("HABITICA_USER_ID")
 API_TOKEN = os.environ.get("HABITICA_API_TOKEN")
+TIMEZONE = pytz.timezone(os.getenv("TIMEZONE", "America/Sao_Paulo"))
 
 HEADERS = {
     "x-api-user": USER_ID,
@@ -14,10 +19,8 @@ HEADERS = {
 
 
 def find_task_by_message(tasks: List[Dict[str, Any]], message: str, threshold: int = 80) -> Dict[str, Any]:
-    """
-    Searches 'todo' and 'daily' tasks for the best Levenshtein match to `message`.
-    Returns a dict with 'id', 'title' and 'score'. Raises if best score < threshold.
-    """
+    # Searches 'todo' and 'daily' tasks for the best Levenshtein match to `message`.
+    # Returns a dict with 'id', 'title' and 'score'. Raises if best score < threshold.
     best_score = 0
     best_task: Optional[Dict[str, Any]] = None
 
@@ -36,11 +39,11 @@ def find_task_by_message(tasks: List[Dict[str, Any]], message: str, threshold: i
     return {"id": best_task["_id"], "title": best_task["text"], "score": best_score}
 
 
-def get_tasks() -> List[Dict[str, Any]]:
-    """
-    Fetches all user tasks from Habitica and returns them as a list of dicts.
-    """
+def get_tasks(today_only: bool = False) -> List[Dict[str, Any]]:
     url = "https://habitica.com/api/v3/tasks/user"
+    if today_only:
+        current_date = datetime.now(TIMEZONE).strftime("%Y-%m-%d")
+        url += f"?duedate={current_date}"
     response = requests.get(url, headers=HEADERS)
     if response.status_code == 200:
         return response.json()["data"]
@@ -49,9 +52,6 @@ def get_tasks() -> List[Dict[str, Any]]:
 
 
 def format_tasks(tasks: List[Dict[str, Any]]) -> str:
-    """
-    Formats 'todo' and 'daily' tasks into a single semicolon-separated string.
-    """
     priority_mapping = {
         0.1: "Trivial",
         1: "Easy",
@@ -91,9 +91,6 @@ def format_tasks(tasks: List[Dict[str, Any]]) -> str:
 
 
 def create_task_todo(text: str, notes: str = "", priority: float = 1, iso_date: Optional[str] = None) -> Dict[str, Any]:
-    """
-    Creates a new 'todo' task. Returns the created task data.
-    """
     url = "https://habitica.com/api/v3/tasks/user"
     payload = {"type": "todo", "text": text, "notes": notes, "priority": priority}
     if iso_date:
@@ -107,9 +104,6 @@ def create_task_todo(text: str, notes: str = "", priority: float = 1, iso_date: 
 
 
 def complete_task(task_id: str) -> Dict[str, Any]:
-    """
-    Marks the specified task as completed. Returns the updated task data.
-    """
     url = f"https://habitica.com/api/v3/tasks/{task_id}/score/up"
     response = requests.post(url, headers=HEADERS)
     if response.status_code != 200:
