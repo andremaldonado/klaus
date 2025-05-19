@@ -98,15 +98,15 @@ def webhook(request):
 
         # Dispatch based on intent
         if intent == "list_calendar":
-            response = handle_list_calendar(chat_id)
+            response = handle_list_calendar(chat_id, user_message)
         elif intent == "create_calendar":
-            response = handle_create_calendar(chat_id, message.get("title"), message.get("start_date"), message.get("end_date"))
+            response = handle_create_calendar(chat_id, user_message, message.get("title"), message.get("start_date"), message.get("end_date"))
         elif intent == "task_status":
-            response = handle_task_status(chat_id, message.get("start_date"), user_message)
+            response = handle_task_status(chat_id, user_message, message.get("start_date"))
         elif intent == "new_task":
-            response = handle_new_task(message.get("title"), message.get("priority"), message.get("start_date"), user_message)
+            response = handle_new_task(chat_id, user_message, message.get("title"), message.get("priority"), message.get("start_date"))
         elif intent == "task_conclusion":
-            response = handle_task_conclusion(message.get("title"))
+            response = handle_task_conclusion(chat_id, user_message, message.get("title"))
         else:
             response = handle_general_chat(chat_id, user_message)
 
