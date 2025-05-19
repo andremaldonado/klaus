@@ -29,7 +29,6 @@ Under the hood it uses:
 - **RapidFuzz** for fuzzy matching approximate task titles  
 - **Firestore** & **ChromaDB** for conversational memory and embeddings  
 - **Functions Framework** to deploy as a Cloud Function  
-- **python-telegram-bot** for Telegram integration
 - **Google Calendar API** to fecth and create events
 
 In the future, it will be much more.
@@ -42,28 +41,31 @@ In the future, it will be much more.
    “Remind me to buy milk tomorrow” → creates a Habitica “todo” with due date  
 3. **Complete Task**  
    “I finished reading the book” → fuzzy-match title, then mark as complete  
-4. **Free-form Chat**  
+4. **List calendar events**  
+   “Which events do I have on my agenda today?” → list events you have
+5. **Create calendar events**  
+   “I need to go to my friend's house today at 3pm?” → create events on your calendar
+6. **Free-form Chat**  
    Fallback to open-ended conversation when message is unrelated to tasks  
-5. **Persistent Memory**  
+7. **Persistent Memory**  
    Stores conversation history & embeddings to carry context across chats  
 
 ## 📁 Project Structure
 
 ```
 .
-├── main.py # Cloud Function entrypoint (webhook)
-├── ai_assistant.py # Gemini prompt utils: chat, interpret, suggest
+├── main.py               # Cloud Function entrypoint (webhook)
+├── ai_assistant.py       # Gemini prompt utils: chat, interpret, suggest
 ├── data
-│ └── memory.py # Firestore + ChromaDB for message/embedding storage
-├── Dockerfile # Container image for Cloud Build / local dev
+│   └── memory.py         # Firestore + ChromaDB for message/embedding storage
+├── Dockerfile            # Container image for Cloud Build / local dev
 ├── externals
-│ └── calendar_api.py # Google Calendar HTTP Client
-│ └── habitica_api.py # Habitica HTTP client & helpers
+│   ├── calendar_api.py   # Google Calendar client & helpers
+│   └── habitica_api.py   # Habitica HTTP client & helpers
 ├── handlers
-│ └── handlers.py # Generic handlers for every kind of request
-│ └── telegram_handler.py # Telegram request validation & reply
-├── requirements.txt # Python dependencies
-└── README.md # This documentation
+│   ├── auth_handler.py   # OAuth2 Google authorization handler
+│   └── handlers.py       # Intent dispatch & task/calendar handlers
+└── requirements.txt      # Python dependencies
 ```
 
 ## 🔧 Prerequisites
@@ -73,25 +75,25 @@ In the future, it will be much more.
   - Cloud Functions API  
   - Firestore enabled  
   - A (writable) GCS bucket or persistent volume for ChromaDB  
-- Habitica account + API token  
-- Telegram bot token & secret (or any other simple frontend)
+- Habitica account + API token
 
 ## ⚙️ Environment Variables
 
 | Name                          | Description                                        |
 | ----------------------------- | -------------------------------------------------- |
-| `HABITICA_USER_ID`            | Your Habitica user ID                              |
-| `HABITICA_API_TOKEN`          | Your Habitica API token                            |
-| `GEMINI_API_KEY`              | Your Vertex AI (Gemini) API key                    |
-| `TELEGRAM_BOT_TOKEN`          | Telegram Bot token                                 |
-| `TELEGRAM_SECRET_TOKEN`       | Telegram webhook secret                            |
-| `TELEGRAM_ALLOWED_CHAT_IDS`   | Comma-separated list of allowed Telegram chat IDs  |
+| `ALLOWED_EMAILS`              | E-mails that can use the app                       |
+| `CHROMA_STORAGE_PATH`         | Path of mounted volume                             |
+| `CORS_ALLOW_ORIGIN`           | Origins alloweed for this API                      |
 | `DB_PROJECT_ID`               | GCP project ID for Firestore                       |
 | `DB_NAME`                     | Firestore database name                            |
-| `CHROMA_STORAGE_PATH`         | Path of mounted volume                             |
-| `GOOGLE_CREDENTIALS_FILE`     | Path of the app credentials for OAuth              |
-| `GOOGLE_TOKENS_DIR`           | Path of the directory to store tokens              |
+| `ENVIRONMENT`                 | Environment in which the app is running            |
+| `GEMINI_API_KEY`              | Your Vertex AI (Gemini) API key                    |
+| `GOOGLE_CLIENT_ID`            | Cliend ID for OAuth                                |
+| `GOOGLE_CLIENT_SECRET`        | Secret for OAuth                                   |
+| `HABITICA_USER_ID`            | Your Habitica user ID                              |
+| `HABITICA_API_TOKEN`          | Your Habitica API token                            |
 | `TIMEZONE`                    | Timezone of your preference                        |
+
 
 ## 🏡 Running Locally
 
@@ -100,6 +102,7 @@ In the future, it will be much more.
 ```bash
 git clone https://github.com/your-org/klaus-task-assistant.git
 cd klaus-task-assistant
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
@@ -109,9 +112,6 @@ pip install -r requirements.txt
 export HABITICA_USER_ID="…"
 export HABITICA_API_TOKEN="…"
 export GEMINI_API_KEY="…"
-export TELEGRAM_BOT_TOKEN="…"
-export TELEGRAM_SECRET_TOKEN="…"
-export TELEGRAM_ALLOWED_CHAT_IDS="123456789"
 export DB_PROJECT_ID="my-gcp-project"
 export DB_NAME="my-firestore-db"
 ```
@@ -125,16 +125,10 @@ functions-framework --target=webhook --port=8080
 4. **Test HTTP endpoint**
 
 ```bash
-curl -X POST "http://localhost:8080?source=web" \
+curl -X POST http://localhost:8080 \
   -H "Content-Type: application/json" \
-  -d '{"message":{"text":"What are my tasks?"}}'
-```
-
-5. **Expose and test telegram**
-
-```bash
-ngrok http 8080
-# Then point your bot webhook to https://<your-ngrok-url>/?source=telegram
+  -H "Authorization: Bearer <ID_TOKEN>" \
+  -d '{"text":"What are my tasks?"}'
 ```
 
 ## 🐳 Docker
@@ -143,11 +137,19 @@ Build and run locally with Docker:
 
 ```bash
 docker build -t klaus-assistant .
-docker run -e HABITICA_USER_ID="…" \
-           -e HABITICA_API_TOKEN="…" \
-           -e … \
-           -p 8080:8080 \
-           klaus-assistant
+docker run -e HABITICA_USER_ID="550e…44000" \
+           -e HABITICA_API_TOKEN="abcdef…" \
+           -e GEMINI_API_KEY="AIzaSy…" \
+           -e GOOGLE_CLIENT_ID="10047…apps.googleusercontent.com" \
+           -e GOOGLE_CLIENT_SECRET="GOCSPX-…" \
+           -e GOOGLE_REDIRECT_URI="http://localhost:8081/" \
+           -e ALLOWED_EMAILS="you@example.com,other@ex.com" \
+           -e DB_PROJECT_ID="my-gcp-project" \
+           -e DB_NAME="(default)" \
+           -e CHROMA_STORAGE_PATH="./storage/chroma" \
+           -e TIMEZONE="America/Sao_Paulo" \
+           -p 8080:8080 klaus-assistant
+
 ```
 
 ## ☁️ Deployment (GCP Cloud Build + Cloud Functions)

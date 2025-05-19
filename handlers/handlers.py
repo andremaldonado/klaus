@@ -4,7 +4,7 @@ from ai_assistant import generate_tasks_suggestion, chat
 from datetime import datetime, timedelta, timezone
 from data.memory import save_message, save_embedding, fetch_similar_memories
 from externals.habitica_api import get_tasks, find_task_by_message, create_task_todo, complete_task
-from externals.calendar_api import generate_authorization_url, list_today_events, exchange_code_for_token, create_event
+from externals.calendar_api import list_today_events, create_event
 
 
 # Constants
@@ -49,21 +49,6 @@ def handle_task_conclusion(title: str) -> str:
     match = find_task_by_message(tasks, title)
     complete_task(match["id"])
     return f"Tarefa \"{match['title']}\" concluída! Bom trabalho!"
-
-
-# Calendar handlers
-def handle_calendar_auth(chat_id: str) -> str:
-    url = generate_authorization_url(chat_id)
-    return f"Para autorizar acesso à sua agenda, clique aqui: {url}"
-
-
-def handle_calendar_code(chat_id: str, code: str) -> str:
-    try:
-        exchange_code_for_token(chat_id, code)
-        response = "Autorização concluída com sucesso!"
-    except Exception as e:
-        response = "Parece que houve um erro ao acessar sua agenda. Para autorizar, digite \"Autorizar agenda\". Erro 002."
-    return response
 
 
 def handle_list_calendar(chat_id: str) -> str:
