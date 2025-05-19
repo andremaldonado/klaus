@@ -9,6 +9,15 @@ from typing import List, Dict, Any
 
 # Constants
 TIMEZONE = pytz.timezone(os.getenv("TIMEZONE", "America/Sao_Paulo"))
+BASIC_INSTRUCTIONS = (
+    "Você é Klaus, um assistente pessoal calmo, educado e objetivo.\n"
+    "Sua missão é manter uma conversa agradável e útil com o usuário, sempre com um tom respeitoso e conciso.\n\n"
+    "=== Instruções de Formatação da resposta ===\n"
+    "- Use texto simples. Você pode usar quebras de linha para separar tópicos.\n"
+    "- Evite formatação em Markdown.\n"
+    "- Use emojis quando entender ser necessário.\n\n"
+)
+
 
 # AI Configuration
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
@@ -19,17 +28,12 @@ def chat(message: str, context: str) -> str:
     today_date = datetime.now(TIMEZONE).strftime("%d/%m/%Y %H:%M")
     
     ai_prompt_system_context = (
-        "Você é Klaus, um assistente pessoal calmo, educado e objetivo. "
-        "Sua missão é manter uma conversa agradável e útil com o usuário, sempre com um tom respeitoso e conciso.\n\n"
-        "=== Instruções de Formatação da resposta ===\n"
-        "- Use texto simples e claro. Utilize quebras de linha para organizar suas respostas em tópicos distintos.\n"
-        "- Evite qualquer tipo de formatação em Markdown.\n\n"
+        BASIC_INSTRUCTIONS +
         f"Hoje é {today_date}.\n"
         "A seguir, você encontrará o contexto das conversas anteriores do usuário:\n"
         f"{context}\n\n"
         "Com base nesse contexto, responda à mensagem do usuário de forma natural e envolvente. "
         "Você pode fazer perguntas, oferecer sugestões ou simplesmente continuar a conversa de maneira fluida.\n"
-        "Aqui está a mensagem do usuário:\n"
     )
 
     response = client.models.generate_content(
@@ -47,29 +51,18 @@ def chat(message: str, context: str) -> str:
 def generate_tasks_suggestion(tasks: List[Dict[str, Any]], events: str, user_context: str) -> str:
     # Generates a suggestion using ChatGPT based on the provided tasks and user context.
     tasks_text = format_tasks(tasks)
-    today_date = datetime.now(TIMEZONE).strftime("%d/%m/%Y")
+    today_date = datetime.now(TIMEZONE).strftime("%d/%m/%Y %H:%M")
     
     ai_prompt_system_context = (
-        "Você é Klaus, um assistente pessoal calmo, educado e objetivo.\n"
-        "Sua missão é analisar as tarefas do usuário e fornecer sugestões práticas.\n"
-        "Use sempre um tom respeitoso, porém conciso.\n\n"
-        "=== Instruções de Formatação da resposta ===\n"
-        "- Use texto simples. Você pode usar quebras de linha para separar tópicos.\n"
-        "- Evite formatação em Markdown.\n"
-        "- Use emojis para indicar prioridade e status.\n\n"
+        BASIC_INSTRUCTIONS +
         "=== Instruções de Resposta ===\n"
         f"Hoje é {today_date}. Abaixo estão as tarefas do usuário, separadas por ponto e vírgula:\n"
         f"{tasks_text}\n\n"
         "Abaixo está a agenda do usuário:\n"
         f"{events}\n\n"
-        "Responda considerando o contexto do usuário e as tarefas listadas.\n\n"
-        "=== EXEMPLO DE RESPOSTA ===\n"
-        "Bom dia! Você tem algumas tarefas pendentes hoje.\n"
-        "Sugiro começar pelas tarefas com datas mais próximas ou já vencidas.\n"
-        "Em seguida, se tiver tempo, avance para as demais.\n"
-        "Evite deixar tarefas se acumularem por vários dias.\n"
-        "Por favor, priorize tarefas urgentes ou de maior impacto e mantenha um tom positivo.\n"
-        "=== FIM DO EXEMPLO ===\n\n"
+        "Responda à solicitação do usuário considerando o contexto do usuário e as tarefas listadas.\n"
+        "Note que podem existir tarefas e eventos para outros dias ou que já foram finalizados.\n" 
+        "Considere isso para responder ao usuário de acordo com a solicitação dele.\n"
     )
 
     response = client.models.generate_content(

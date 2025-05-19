@@ -72,7 +72,8 @@ def handle_google_auth(request):
         idinfo = google_id_token.verify_oauth2_token(
             idtok,
             google_requests.Request(),
-            os.getenv("GOOGLE_CLIENT_ID")
+            os.getenv("GOOGLE_CLIENT_ID"),
+            clock_skew_in_seconds=10 if _ENVIRONMENT == "dev" else 0
         )
     except Exception as e:
         logger.debug(f"❌ [ERROR] Invalid ID token: {e}")

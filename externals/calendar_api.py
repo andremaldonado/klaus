@@ -62,7 +62,7 @@ def list_today_events(chat_id: str) -> list[str]:
         logger.debug("▶️ [DEBUG] calling events().list with token:", creds.token)
         service = build("calendar", "v3", credentials=creds)
         now = datetime.now(TIMEZONE).isoformat()
-        end = (datetime.now(TIMEZONE) + timedelta(days=1)).isoformat()
+        end = datetime.now(TIMEZONE).replace(hour=23, minute=59, second=59, microsecond=0).isoformat()
         events = service.events().list(
             calendarId="primary", timeMin=now, timeMax=end,
             singleEvents=True, orderBy="startTime"
@@ -71,7 +71,7 @@ def list_today_events(chat_id: str) -> list[str]:
         if not events:
             return ["Nenhum evento para hoje."]
         return [
-            f"{e['summary']} – { e['start'].get('dateTime', e['start'].get('date')) }"
+            f"📅 {e['summary']} – {datetime.fromisoformat(e['start'].get('dateTime', e['start'].get('date'))).strftime('%H:%M') if 'dateTime' in e['start'] else 'Dia todo'}"
             for e in events
         ]
     except Exception as e:

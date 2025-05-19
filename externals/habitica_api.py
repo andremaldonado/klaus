@@ -78,13 +78,13 @@ def format_tasks(tasks: List[Dict[str, Any]]) -> str:
             is_due = task.get("isDue", False)
             completed = task.get("completed", False)
             if is_due and not completed:
-                status_emoji, status_text = "⌛", "To do today"
+                status_emoji, status_text = "⌛", "Fazer hoje"
             elif is_due and completed:
-                status_emoji, status_text = "✅", "Done today"
+                status_emoji, status_text = "✅", "Feita hoje"
             elif completed:
-                status_emoji, status_text = "✅", "Done (not due today)"
+                status_emoji, status_text = "✅", "Feita (outro dia)"
             else:
-                status_emoji, status_text = "🔵", "Not due today"
+                status_emoji, status_text = "🔵", "Não é para hoje"
             dailies_text.append(f"{status_emoji} {task['text']} (daily) - {status_text}")
 
     return ";".join(todos_text + dailies_text)
