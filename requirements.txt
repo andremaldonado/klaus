@@ -1,11 +1,13 @@
 chromadb
+flask
 functions-framework
 google-api-python-client
+google-auth
 google-auth-httplib2
 google-auth-oauthlib
 google-cloud-firestore
 google-genai
-python-telegram-bot
+pydantic
 pytz
 rapidfuzz
 requests

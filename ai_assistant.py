@@ -99,8 +99,6 @@ def interpret_user_message(user_message: str) -> Dict[str, Any]:
         - Refere-se à criação de uma nova tarefa.
         - Solicita o status de tarefas existentes.
         - Solicita a conclusão de uma tarefa.
-        - Solicita a conexão com o Google Calendar.
-        - Solicita a troca de código de autorização do Google Calendar.
         - Solicita a listagem de eventos do Google Calendar.
         - Solicita a criação de um evento no Google Calendar.
         - Não está relacionada a nenhuma das anteriores.
@@ -149,12 +147,6 @@ def interpret_user_message(user_message: str) -> Dict[str, Any]:
 
         Usuário: "Já fiz a lição"
         Saída: {{ "message": "Já fiz a lição", "type": "task_conclusion", "title": "lição", "start_date": null, "end_date": null, "priority": null, "details": null }}
-
-        Usuário: "quero conectar minha agenda"
-        Saída: {{ "message": "quero conectar minha agenda", "type": "calendar_auth", "title": null, "start_date": null, "end_date": null, "priority": null, "details": null }}
-
-        Usuário: “meu código é [código]”
-        Saída: {{ "message": "meu código é [código]", "type": "calendar_code", "title": null, "start_date": null, "end_date": null, "priority": null, "details": "[código]" }}
 
         Usuário: "Quais eventos tenho hoje?"
         Saída: {{ "message": "Quais eventos tenho hoje?", "type": "list_calendar", "title": null, "start_date": "10/05/2024", "end_date": null, "priority": null, "details": null }}
