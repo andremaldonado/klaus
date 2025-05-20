@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 def list_today_events(chat_id: str) -> list[str]:
     try:
-        creds = _load_credentials(chat_id)
+        creds = load_credentials(chat_id)
         logger.debug("▶️ [DEBUG] calling events().list with token:", creds.token)
         service = build("calendar", "v3", credentials=creds)
         now = datetime.now(TIMEZONE).isoformat()
