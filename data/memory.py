@@ -75,5 +75,5 @@ def fetch_similar_memories(chat_id, query_text: str, top_k: int = 3) -> List[str
         query_embeddings=[query_embedding],
         n_results=top_k
     )
-    logger.info(f"Fetched {len(results.get('documents', [[]])[0])} similar memories for query: {query_text}.")
+    logger.info(f"Fetched {len(results.get('documents', [[]])[0])} similar memories for query: {query_text}. These are the memories: {results.get('documents', [[]])[0]}")
     return results.get("documents", [[]])[0]

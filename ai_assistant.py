@@ -9,9 +9,11 @@ from typing import List, Dict, Any
 
 # Constants
 TIMEZONE = pytz.timezone(os.getenv("TIMEZONE", "America/Sao_Paulo"))
+TODAY_DATE = datetime.now(TIMEZONE).strftime("%d/%m/%Y %H:%M")
 BASIC_INSTRUCTIONS = (
     "Você é Klaus, um assistente pessoal calmo, educado e objetivo.\n"
-    "Sua missão é manter uma conversa agradável e útil com o usuário, sempre com um tom respeitoso e conciso.\n\n"
+    "Sua missão é manter uma conversa agradável e útil com o usuário, sempre com um tom respeitoso e conciso.\n"
+    f"Hoje é {TODAY_DATE}.\n\n"
     "=== Instruções de Formatação da resposta ===\n"
     "- Use texto simples. Você pode usar quebras de linha para separar tópicos.\n"
     "- Evite formatação em Markdown.\n"
@@ -25,11 +27,9 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 def chat(message: str, context: str) -> str:
     # Generates a message using the Gemini API based on the provided user message.
-    today_date = datetime.now(TIMEZONE).strftime("%d/%m/%Y %H:%M")
     
     ai_prompt_system_context = (
         BASIC_INSTRUCTIONS +
-        f"Hoje é {today_date}.\n"
         "A seguir, você encontrará o contexto das conversas anteriores do usuário:\n"
         f"{context}\n\n"
         "Com base nesse contexto, responda à mensagem do usuário de forma natural e envolvente. "
@@ -56,7 +56,7 @@ def generate_tasks_suggestion(tasks: List[Dict[str, Any]], events: str, user_con
     ai_prompt_system_context = (
         BASIC_INSTRUCTIONS +
         "=== Instruções de Resposta ===\n"
-        f"Hoje é {today_date}. Abaixo estão as tarefas do usuário, separadas por ponto e vírgula:\n"
+        f"Abaixo estão as tarefas do usuário, separadas por ponto e vírgula:\n"
         f"{tasks_text}\n\n"
         "Abaixo está a agenda do usuário:\n"
         f"{events}\n\n"
@@ -123,7 +123,7 @@ def interpret_user_message(user_message: str) -> Dict[str, Any]:
 
         EXEMPLOS
 
-        Usuário: "Preciso ir na academia hoje"  
+        Usuário: "Crie a seguinte tarefa: ir na academia hoje"  
         Saída: {{ "message": "Preciso ir na academia hoje", "type": "new_task", "title": "ir na academia", "start_date": "10/10/2023", "end_date": null, "priority": null, "details": null }}
 
         Usuário: "Quais tarefas minhas estão atrasadas?"  

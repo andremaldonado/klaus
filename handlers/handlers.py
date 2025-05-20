@@ -93,7 +93,7 @@ def handle_create_calendar(chat_id: str, user_message: str, title: str, start: s
 def handle_general_chat(chat_id: str, user_message: str) -> str:
     _save_message(False, user_message, chat_id)
     # Fetch context for the chat
-    relevant_memories = fetch_similar_memories(chat_id, user_message)
+    relevant_memories = fetch_similar_memories(chat_id, user_message, 15)
     memory_block = "\n".join(relevant_memories)
     response = chat(user_message, memory_block)
     _save_message(True, response, chat_id)
