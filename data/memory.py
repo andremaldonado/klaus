@@ -2,6 +2,8 @@ import chromadb
 import os
 import uuid
 import pytz
+import logging
+
 from datetime import datetime, timezone
 from google import genai
 from google.cloud import firestore
@@ -10,12 +12,17 @@ from typing import Tuple, Dict, Any, List, Optional
 
 # Constants
 TIMEZONE = pytz.timezone(os.getenv("TIMEZONE", "America/Sao_Paulo"))
+_ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
 
 # Database configuration
 firestore_client = firestore.Client(project=os.getenv("DB_PROJECT_ID"), database=os.getenv("DB_NAME"))
 
 # AI Configuration
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+# Logging configuration
+logging.basicConfig(level=logging.DEBUG if _ENVIRONMENT == "dev" else logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def get_chroma_client(chat_id: str) -> chromadb.api.models.Collection:
@@ -68,4 +75,5 @@ def fetch_similar_memories(chat_id, query_text: str, top_k: int = 3) -> List[str
         query_embeddings=[query_embedding],
         n_results=top_k
     )
+    logger.info(f"Fetched {len(results.get('documents', [[]])[0])} similar memories for query: {query_text}.")
     return results.get("documents", [[]])[0]
