@@ -1,15 +1,22 @@
 import base64
 import os
 import functions_framework
+import pytz
 import logging
+
 from ai_assistant import interpret_user_message
+from auth.auth_handler import handle_google_auth
+from auth.utils import refresh_id_token
+from datetime import datetime, timezone
+from handlers.handlers import handle_task_status, handle_new_task, handle_task_conclusion, handle_general_chat, handle_list_calendar, handle_create_calendar
+
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
-from handlers.auth_handler import handle_google_auth
-from handlers.handlers import handle_task_status, handle_new_task, handle_task_conclusion, handle_general_chat, handle_list_calendar, handle_create_calendar
 from pydantic import ValidationError
 from schemas import ChatRequest
 
+
+TIMEZONE = pytz.timezone(os.getenv("TIMEZONE", "America/Sao_Paulo"))
 
 # logging configuration
 _ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
@@ -62,7 +69,17 @@ def webhook(request):
             os.getenv("GOOGLE_CLIENT_ID")
         )
     except Exception as e:
-        return f"Invalid ID token: {e}", 401, headers
+        logger.warning(f"⚠️ Token inválido: {e} — tentando refresh automático")
+        try:
+            id_token_str = refresh_id_token(chat_id)
+            idinfo = id_token.verify_oauth2_token(
+                id_token_str,
+                google_requests.Request(),
+                os.getenv("GOOGLE_CLIENT_ID")
+            )
+        except Exception as refresh_error:
+            logger.error(f"❌ Refresh token falhou: {refresh_error}")
+            return f"Invalid ID token and refresh failed: {refresh_error}", 401, headers
 
     email = idinfo.get("email")
     if not idinfo.get("email_verified"):
@@ -110,6 +127,7 @@ def webhook(request):
         else:
             response = handle_general_chat(chat_id, user_message)
 
+        response = {"response": response, "intent": intent, "date": datetime.now(TIMEZONE).isoformat()}
         return response, 200, headers
 
     except Exception as e:

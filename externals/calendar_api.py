@@ -1,11 +1,14 @@
 import os
 import pytz
-from datetime import datetime, timedelta
 import logging
+
+from auth.utils import load_credentials
+from data.memory import firestore_client
+
+from datetime import datetime, timedelta
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
-from data.memory import firestore_client
 
 
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
@@ -18,43 +21,6 @@ _ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
 logging.basicConfig(level=logging.DEBUG if _ENVIRONMENT == "dev" else logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-def _get_user_doc(chat_id: str):
-    return firestore_client.collection("users").document(chat_id)
-
-def _load_credentials(chat_id: str) -> Credentials:
-    doc = _get_user_doc(chat_id).get()
-    logger.debug(f"▶️ [DEBUG] chat_id = {chat_id}")
-    logger.debug(f"▶️ [DEBUG] Firestore data = {doc.to_dict() if doc.exists else 'NO DOC'}")
-    if not doc.exists:
-        raise Exception("User not authorized. Please login at the front-end.")
-    data = doc.to_dict()
-    refresh_token = data.get("refresh_token")
-    logger.debug(f"▶️ [DEBUG] refresh_token = {refresh_token!r}")
-    if not refresh_token:
-        raise Exception("No refresh token found. Please re-authorize.")
-
-    creds = Credentials(
-        token=None,
-        refresh_token=refresh_token,
-        token_uri=TOKEN_URI,
-        client_id=os.getenv("GOOGLE_CLIENT_ID"),
-        client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
-        scopes=SCOPES
-    )
-    # Atualiza access_token se expirado
-    logger.debug("▶️ [DEBUG] creds before refresh:", creds) 
-    if creds.expired or not creds.valid:
-        try:
-            creds.refresh(Request())
-            logger.debug("▶️ [DEBUG] creds after refresh:", creds)
-        except Exception as e:
-            logger.debug("❌ [ERROR] refresh failed:", repr(e))
-        # opcional: se rotation de refresh_token, salve new refresh_token:
-        new_rt = getattr(creds, "refresh_token", None)
-        if new_rt and new_rt != refresh_token:
-            _get_user_doc(chat_id).update({"refresh_token": new_rt})
-    return creds
 
 def list_today_events(chat_id: str) -> list[str]:
     try:
@@ -79,7 +45,7 @@ def list_today_events(chat_id: str) -> list[str]:
         raise
 
 def create_event(chat_id: str, summary: str, start: str, end: str) -> str:
-    creds = _load_credentials(chat_id)
+    creds = load_credentials(chat_id, SCOPES)
     service = build("calendar", "v3", credentials=creds)
 
     start_dt = TIMEZONE.localize(datetime.strptime(start, "%d/%m/%Y %H:%M"))
