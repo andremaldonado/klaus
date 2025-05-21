@@ -1,4 +1,5 @@
 chromadb
+dateparser
 flask
 functions-framework
 google-api-python-client
