@@ -6,7 +6,7 @@ import logging
 
 from ai_assistant import interpret_user_message
 from auth.auth_handler import handle_google_auth
-from auth.utils import refresh_id_token
+from auth.utils import refresh_id_token, extract_email_from_token
 from datetime import datetime, timezone
 from handlers.handlers import handle_task_status, handle_new_task, handle_task_conclusion, handle_general_chat, handle_list_calendar, handle_create_calendar
 
@@ -69,8 +69,10 @@ def webhook(request):
             os.getenv("GOOGLE_CLIENT_ID")
         )
     except Exception as e:
-        logger.warning(f"⚠️ Token inválido: {e} — tentando refresh automático")
+        logger.warning(f"⚠️ Invalid Token: {e} — trying auto-refresh")
         try:
+            email_guess = extract_email_from_token(id_token_str)
+            chat_id = _sanitize_id(email_guess)
             id_token_str = refresh_id_token(chat_id)
             idinfo = id_token.verify_oauth2_token(
                 id_token_str,

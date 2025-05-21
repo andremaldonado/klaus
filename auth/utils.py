@@ -1,4 +1,5 @@
 import os
+import jwt
 
 from data.memory import firestore_client
 
@@ -11,6 +12,15 @@ TOKEN_URI = "https://oauth2.googleapis.com/token"
 
 def _get_user_doc(chat_id: str):
     return firestore_client.collection("users").document(chat_id)
+
+
+def extract_email_from_token(token: str) -> str:
+    try:
+        decoded = jwt.decode(token, options={"verify_signature": False})
+        return decoded.get("email")
+    except Exception as e:
+        raise Exception(f"Couldn't retrieve email from token: {e}")
+
 
 
 def load_credentials(chat_id: str, scopes: list[str]) -> Credentials:
