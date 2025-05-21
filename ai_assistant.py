@@ -1,10 +1,13 @@
 import json
 import os
 import pytz
-from datetime import datetime, timezone
+import re
+
+from dateparser import parse as dp_parse
+from datetime import datetime, timezone, timedelta
 from externals.habitica_api import format_tasks
 from google import genai
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 
 # Constants
@@ -78,106 +81,91 @@ def generate_tasks_suggestion(tasks: List[Dict[str, Any]], events: str, user_con
 
 
 def interpret_user_message(user_message: str) -> Dict[str, Any]:
-    # Interprets the user message to determine his intent or is unrelated. It returns a structured JSON with
-    # the following fields:
+    """
+    Interpreta a mensagem do usuário, classificando a intenção e extraindo
+    campos como título, datas (início/término) e outros detalhes.
+    Usa python-dateparser para entender datas naturais em português.
+    """
+    text = user_message.strip()
+    msg_lower = text.lower()
     
-    today_date = datetime.now(TIMEZONE).strftime("%d/%m/%Y %H:%M")
-    ai_prompt_engineering_prompt = (
-        f"""Aja como um especialista em interpretação de linguagem natural e extração de informações a partir de mensagens de texto. 
-        Sua tarefa é classificar a intenção da mensagem do usuário e extrair informações relevantes.
-        INSTRUÇÃO
+    start_iso: Optional[str] = None
+    end_iso: Optional[str] = None
 
-        Você receberá uma mensagem de usuário. Sua tarefa é determinar se a mensagem:
-
-        - Refere-se à criação de uma nova tarefa.
-        - Solicita o status de tarefas existentes.
-        - Solicita a conclusão de uma tarefa.
-        - Solicita a listagem de eventos do Google Calendar.
-        - Solicita a criação de um evento no Google Calendar.
-        - Não está relacionada a nenhuma das anteriores.
-
-        Você DEVE extrair os seguintes campos e retorná-los em JSON no seguinte formato:
-
-        {{
-        "message": [mensagem original do usuário],
-        "type": ["new_task" | "task_status" | "task_conclusion" | "unrelated"],
-        "title": [título resumido da tarefa, nome do evento para o calendário ou null],
-        "start_date": [data de início do evento, no formato dd/mm/aaaa hh:mm ou null],
-        "end_date": [data de término do evento, no formato dd/mm/aaaa hh:mm ou null],
-        "priority": ["low" | "medium" | "high" | null]
-        "details": [detalhes adicionais ou null]
-        }}
-
-        É imprescindível que esse retorno não tenha nenhuma formatação, nem mesmo algo como ```json.
-
-        Seja rigoroso em sua classificação. Se uma mensagem for ambígua ou não se referir claramente a uma tarefa, 
-        status de tarefa ou item de calendário, classifique-a como "unrelated".
-
-        Ao extrair a prioridade, considere não apenas palavras-chave explícitas, mas também a urgência implícita no tom. Por exemplo:
-
-        - "preciso muito", "urgente", "o quanto antes" → high  
-        - "se possível", "talvez", "mais tarde" → low
-
-        Mantenha o texto original em português nos campos "message" e "title". 
-        Para os campos start_date e end_date, use as datas que o usuário fornecer, as que coloquei no exemplo são apenas exemplos de formatação e não as datas que você precisa enviar.
-
-        EXEMPLOS
-
-        Usuário: "Crie a seguinte tarefa: ir na academia hoje"  
-        Saída: {{ "message": "Preciso ir na academia hoje", "type": "new_task", "title": "ir na academia", "start_date": "10/10/2023", "end_date": null, "priority": null, "details": null }}
-
-        Usuário: "Quais tarefas minhas estão atrasadas?"  
-        Saída: {{ "message": "Quais tarefas minhas estão atrasadas?", "type": "task_status", "title": null, "start_date": null, "end_date": null, "priority": null, "details": null }}
-
-        Usuário: "Tenho tarefas para hoje? Quais?"  
-        Saída: {{ "message": "Tenho tarefas para hoje? Quais?", "type": "task_status", "title": null, "start_date": "10/10/2023", "end_date": null, "priority": null, "details": null }}
-
-        Usuário: "A pizza chegou"  
-        Saída: {{ "message": "A pizza chegou", "type": "unrelated", "title": null, "start_date": null, "end_date": null, "priority": null, "details": null }}
-
-        Usuário: "Terminei de ler o livro"
-        Saída: {{ "message": "Terminei de ler o livro", "type": "task_conclusion", "title": "ler o livro", "start_date": null, "end_date": null, "priority": null, "details": null }}
-
-        Usuário: "Já fiz a lição"
-        Saída: {{ "message": "Já fiz a lição", "type": "task_conclusion", "title": "lição", "start_date": null, "end_date": null, "priority": null, "details": null }}
-
-        Usuário: "Quais eventos tenho hoje?"
-        Saída: {{ "message": "Quais eventos tenho hoje?", "type": "list_calendar", "title": null, "start_date": "10/05/2024", "end_date": null, "priority": null, "details": null }}
-
-        Usuário: "Preciso cortar o cabelo amanhã às 15:00"
-        Saída: {{ "message": "Preciso cortar o cabelo amanhã às 15:00", "type": "create_calendar", "title": "cortar o cabelo", "start_date": "11/07/2025 15:00", "end_date": null, "priority": null, "details": null }}
-
-        Usuário: "Reunião de trabalho das 14:00 às 15:30 no dia 10/10/2023"
-        Saída: {{ "message": "Reunião de trabalho das 14:00 às 15:30 no dia 10/10/2023", "type": "create_calendar", "title": "Reunião de trabalho", "start_date": "10/10/2023 14:00", "end_date": "10/10/2023 15:30", "priority": null, "details": null }}
-
-        FIM
-
-        Informações adicionais que podem ser relevantes:
-         - Hoje é dia {today_date}
-
-        Agora, processe a seguinte mensagem de acordo com as instruções."""
+    interval_match = re.search(
+        r'das?\s*(\d{1,2}:\d{2})\s*(?:às?|a)\s*(\d{1,2}:\d{2})(?:\s*no dia\s*(\d{1,2}/\d{1,2}/\d{2,4}))?',
+        msg_lower
     )
-
-    response = client.models.generate_content(
-        model="gemini-2.0-flash-lite",
-        contents=user_message,
-        config=genai.types.GenerateContentConfig(
-            system_instruction=ai_prompt_engineering_prompt,
-            temperature=0.0
+    if interval_match:
+        start_time = interval_match.group(1)
+        end_time = interval_match.group(2)
+        date_part = interval_match.group(3)
+        if date_part:
+            start_dt = dp_parse(f"{date_part} {start_time}", languages=['pt'], settings={'TIMEZONE': TIMEZONE.zone, 'RETURN_AS_TIMEZONE_AWARE': True})
+            end_dt = dp_parse(f"{date_part} {end_time}", languages=['pt'], settings={'TIMEZONE': TIMEZONE.zone, 'RETURN_AS_TIMEZONE_AWARE': True})
+        else:
+            today_str = datetime.now(TIMEZONE).strftime("%d/%m/%Y")
+            start_dt = dp_parse(f"{today_str} {start_time}", languages=['pt'], settings={'TIMEZONE': TIMEZONE.zone, 'RETURN_AS_TIMEZONE_AWARE': True})
+            end_dt = dp_parse(f"{today_str} {end_time}", languages=['pt'], settings={'TIMEZONE': TIMEZONE.zone, 'RETURN_AS_TIMEZONE_AWARE': True})
+        if start_dt:
+            start_iso = start_dt.strftime("%d/%m/%Y %H:%M")
+        if end_dt:
+            end_iso = end_dt.strftime("%d/%m/%Y %H:%M")
+    else:
+        date_match = re.search(
+            r'((?:hoje|amanhã|ontem|próximo[oa]? [a-zç]+|\d{1,2}/\d{1,2}/\d{2,4})(?:\s*às?\s*(\d{1,2}:\d{2}))?)',
+            msg_lower
         )
-    )
+        if date_match:
+            date_str = date_match.group(1)
+            hour_str = date_match.group(2)
+            dt = dp_parse(
+                date_str,
+                languages=['pt'],
+                settings={
+                    'TIMEZONE': TIMEZONE.zone,
+                    'RETURN_AS_TIMEZONE_AWARE': True
+                }
+                )
+            if dt:
+                if hour_str:
+                    hour, minute = map(int, hour_str.split(":"))
+                    dt = dt.replace(hour=hour, minute=minute)
+                    start_iso = dt.strftime("%d/%m/%Y %H:%M")
+                else:
+                    start_iso = dt.strftime("%d/%m/%Y")
+                end_iso = None
 
-    result_text = response.text
-    try:
-        result = json.loads(result_text)
-    except json.JSONDecodeError:
-        result = {
-            "message": user_message,
-            "type": "unrelated",
-            "title": None,
-            "start_date": None,
-            "end_date": None,
-            "priority": None,
-            "details": None
-        }
-    return result
+    # 2) Intent detection
+    if re.search(r'\b(preciso)\b|\b(crie.*tarefa)\b', msg_lower):
+        intent = 'new_task'
+    elif re.search(r'\b(mostre|tenho|quais)\b', msg_lower) and 'tarefas' in msg_lower:
+        intent = 'task_status'
+    elif re.search(r'\b(terminei|já fiz|concluí|acabei)\b', msg_lower):
+        intent = 'task_conclusion'
+    elif re.search(r'\b(quais|lista|mostre)\b', msg_lower) and 'eventos' in msg_lower:
+        intent = 'list_calendar'
+    elif (re.search(r'\b(crie|adicione|novo)\b', msg_lower) and 'evento') or re.search(r'\b(reunião.*às)\b', msg_lower):
+        intent = 'create_calendar'
+    else:
+        intent = 'unrelated'
+
+    # 3) Extrair título para tarefas/eventos (simplificado)
+    title: Optional[str] = None
+    if intent in ('new_task', 'task_conclusion', 'create_calendar'):
+        # remove palavras-chave e datas
+        title = re.sub(
+            r'\b(crie|adicione|novo)\b|\btarefa\b|\bevento\b|\bhoje\b|\bamanhã\b|\d{1,2}/\d{1,2}/\d{2,4}',
+            '',
+            text, flags=re.IGNORECASE
+        ).strip()
+
+    return {
+        "message": text,
+        "type": intent,
+        "title": title or None,
+        "start_date": start_iso,
+        "end_date": end_iso,
+        "priority": None,
+        "details": None
+    }
