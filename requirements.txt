@@ -8,6 +8,7 @@ google-auth-httplib2
 google-auth-oauthlib
 google-cloud-firestore
 google-genai
+PyJWT
 pydantic
 pytz
 rapidfuzz
