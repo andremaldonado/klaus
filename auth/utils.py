@@ -1,5 +1,6 @@
 import os
 import jwt
+import requests
 
 from data.memory import firestore_client
 
