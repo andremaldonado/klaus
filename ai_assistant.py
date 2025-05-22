@@ -33,7 +33,7 @@ def chat(message: str, context: str) -> str:
     
     ai_prompt_system_context = (
         BASIC_INSTRUCTIONS +
-        "A seguir, você encontrará o contexto das conversas anteriores do usuário:\n"
+        "A seguir, você encontrará um contexto importante sobre o usuário e suas interações com ele:\n"
         f"{context}\n\n"
         "Com base nesse contexto, responda à mensagem do usuário de forma natural e envolvente. "
         "Você pode fazer perguntas, oferecer sugestões ou simplesmente continuar a conversa de maneira fluida.\n"
@@ -169,3 +169,15 @@ def interpret_user_message(user_message: str) -> Dict[str, Any]:
         "priority": None,
         "details": None
     }
+
+
+def check_intents(user_message: str) -> List[str]:
+    intents = []
+    msg = user_message.lower()
+
+    if re.search(r"\b(agenda|evento|compromisso|calendário|reunião|dia)\b", msg):
+        intents.append("calendar")
+    if re.search(r"\b(tarefa|afazer|pendência|atividade|dia)\b", msg):
+        intents.append("tasks")
+
+    return intents

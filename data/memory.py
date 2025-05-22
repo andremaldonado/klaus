@@ -32,8 +32,9 @@ def get_chroma_client(chat_id: str) -> chromadb.api.models.Collection:
     return chromadb.PersistentClient(path=user_path)
 
 
-def save_message(role: str, text: str) -> Tuple[str, Dict[str, Any]]:
+def save_message(chat_id: str, role: str, text: str) -> Tuple[str, Dict[str, Any]]:
     data = {
+        "chat_id": chat_id,
         "role": role,
         "text": text,
         "timestamp": datetime.now(TIMEZONE).isoformat()
@@ -49,7 +50,7 @@ def generate_embedding(text: str) -> List[float]:
     return result.embeddings[0].values
 
 
-def save_embedding(text, chat_id, message_id):
+def save_embedding(text: str, chat_id: str, message_id: str) -> None:
     chroma_client = get_chroma_client(chat_id)
     collection = chroma_client.get_or_create_collection("memories")
     embedding = generate_embedding(text)
@@ -67,7 +68,7 @@ def save_embedding(text, chat_id, message_id):
     )
 
 
-def fetch_similar_memories(chat_id, query_text: str, top_k: int = 3) -> List[str]:
+def fetch_similar_memories(chat_id: str, query_text: str, top_k: int = 3) -> List[str]:
     chroma_client = get_chroma_client(chat_id)
     collection = chroma_client.get_or_create_collection("memories")
     query_embedding = generate_embedding(query_text)
@@ -75,5 +76,17 @@ def fetch_similar_memories(chat_id, query_text: str, top_k: int = 3) -> List[str
         query_embeddings=[query_embedding],
         n_results=top_k
     )
-    logger.info(f"Fetched {len(results.get('documents', [[]])[0])} similar memories for query: {query_text}. These are the memories: {results.get('documents', [[]])[0]}")
+    logger.info(f"Fetched {len(results.get('documents', [[]])[0])} similar memories for query: {query_text} on chat_id {chat_id}. These are the memories: {results.get('documents', [[]])[0]}")
     return results.get("documents", [[]])[0]
+
+
+def get_latest_messages(chat_id: str, limit: int = 16) -> List[Dict[str, Any]]:
+    try:
+        messages_ref = firestore_client.collection("messages")
+        messages_ref = messages_ref.where("chat_id", "==", chat_id)
+        query = messages_ref.order_by("timestamp", direction=firestore.Query.DESCENDING).limit(limit)
+        results = query.stream()
+        return [doc.to_dict() for doc in results]
+    except Exception as e:
+        logger.error(f"❌ Error fetching latest messages: {e}")
+        return []
