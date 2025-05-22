@@ -1,8 +1,11 @@
 import pytz
 import os
-from ai_assistant import generate_tasks_suggestion, chat
+import logging
+
 from datetime import datetime, timedelta, timezone
-from data.memory import save_message, save_embedding, fetch_similar_memories
+
+from ai_assistant import generate_tasks_suggestion, chat, check_intents
+from data.memory import save_message, save_embedding, fetch_similar_memories, get_latest_messages
 from externals.habitica_api import get_tasks, find_task_by_message, create_task_todo, complete_task
 from externals.calendar_api import list_today_events, create_event
 
@@ -10,6 +13,12 @@ from externals.calendar_api import list_today_events, create_event
 # Constants
 PRIORITY_MAP = {"low": 0.1, "medium": 1, "high": 2}
 TIMEZONE = pytz.timezone(os.getenv("TIMEZONE", "America/Sao_Paulo"))
+
+
+# logging configuration
+_ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
+logging.basicConfig(level=logging.DEBUG if _ENVIRONMENT == "dev" else logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 # Common functions
@@ -31,9 +40,11 @@ def _parse_iso_date(date_text: str) -> str | None:
 
 def _save_message(bot_role: bool, text: str, chat_id: str) -> str:
     # Save message and embedding to the database
-    if bot_role: chat_id = f"assistant_{chat_id}"
-    message_id, saved_data = save_message(chat_id, text)
-    save_embedding(text, chat_id, message_id)
+    role = "user"
+    if bot_role: role = "klaus"
+    message_id, saved_data = save_message(chat_id, role, text)
+    if role == "user":
+        save_embedding(text, chat_id, message_id)
 
 
 # Task handlers
@@ -89,12 +100,43 @@ def handle_create_calendar(chat_id: str, user_message: str, title: str, start: s
     return response
 
 
-# General handlers
+# General handler
 def handle_general_chat(chat_id: str, user_message: str) -> str:
     _save_message(False, user_message, chat_id)
-    # Fetch context for the chat
+    
+    memory_block = ""
+
+    # Fetch context of similar memories
     relevant_memories = fetch_similar_memories(chat_id, user_message, 15)
-    memory_block = "\n".join(relevant_memories)
+    if relevant_memories:
+        memory_block += "\n\nContexto importante de mensagens anteriores, não ignore este contexto ao respoder:\n"
+        memory_block = "\n".join(relevant_memories)
+
+    # Fetch latest messages
+    latest_messages = get_latest_messages(chat_id)
+    if len(latest_messages) > 0:
+        memory_block += "\n\nMensagens mais recentes que vocês trocaram, não ignore este contexto ao respoder:\n"
+        for message in latest_messages: 
+            if message["role"] == "user":
+                memory_block += f"Usuário: {message['text']}\n"
+            else:
+                memory_block += f"Assistente: {message['text']}\n"
+
+    # Check for calendar and task intents to include in the memory block
+    intents = check_intents(user_message)
+    if "calendar" in intents:
+        events = list_today_events(chat_id)
+        if events:
+            memory_block += "\n\nEventos do usuário em sua agenda, caso seja útil:"
+            memory_block += f"\n{events}"
+    if "tasks" in intents:
+        tasks = get_tasks()
+        if tasks:
+            memory_block += "\n\nTarefas do usuário em sua lista de tarefas, caso seja útil:"
+            memory_block += "\n{tasks}"
+
+    # Generate response
+    logger.debug(f"▶️ [DEBUG] memory_block = {memory_block}")
     response = chat(user_message, memory_block)
     _save_message(True, response, chat_id)
     return response
