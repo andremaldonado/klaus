@@ -115,8 +115,8 @@ def handle_general_chat(chat_id: str, user_message: str) -> str:
     # Fetch latest messages
     latest_messages = get_latest_messages(chat_id)
     if len(latest_messages) > 0:
-        memory_block += "\n\nMensagens mais recentes que vocês trocaram, não ignore este contexto ao respoder:\n"
-        for message in latest_messages: 
+        memory_block += "\n\nMensagens mais recentes que vocês trocaram, da mais recente para a mais antiga, considere isso caso seja necessário uma conversa fluida:\n"
+        for message in reversed(latest_messages): 
             if message["role"] == "user":
                 memory_block += f"Usuário: {message['text']}\n"
             else:
