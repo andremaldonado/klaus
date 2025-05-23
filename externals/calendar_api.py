@@ -3,7 +3,6 @@ import pytz
 import logging
 
 from auth.utils import load_credentials
-from data.memory import firestore_client
 
 from datetime import datetime, timedelta
 from google.oauth2.credentials import Credentials

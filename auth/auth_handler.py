@@ -3,14 +3,17 @@ import requests
 import base64
 import logging
 
-from data.memory import firestore_client
+from data.user import get_user_doc
 from schemas import AuthCodeRequest
+from auth.utils import extract_email_from_token, sanitize_id
 
 from datetime import datetime, timezone
 from google.oauth2 import id_token as google_id_token
 from google.auth.transport import requests as google_requests
 from flask import jsonify
 from pydantic import ValidationError
+from typing import Any, Dict, Tuple, Union
+from flask import Request
 
 
 _TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -21,6 +24,68 @@ _ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
 logging.basicConfig(level=logging.DEBUG if _ENVIRONMENT == "dev" else logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+def _refresh_id_token(chat_id: str) -> str:
+    doc = get_user_doc(chat_id).get()
+    if not doc.exists:
+        raise Exception("User not found. Please login at the front-end.")
+    data = doc.to_dict()
+    refresh_token = data.get("refresh_token")
+    if not refresh_token:
+        raise Exception("Unauthorized. Please login at the front-end.")
+
+    resp = requests.post(TOKEN_URI, data={
+        "client_id": os.getenv("GOOGLE_CLIENT_ID"),
+        "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
+        "refresh_token": refresh_token,
+        "grant_type": "refresh_token"
+    }, headers={"Content-Type": "application/x-www-form-urlencoded"})
+
+    if resp.status_code != 200:
+        raise Exception(f"Error renewing token: {resp.text}")
+
+    return resp.json()["id_token"]
+
+
+def authenticate_request(auth_header) -> Tuple[int, Union[str, Dict[str, Any]]]:
+    if not auth_header.startswith("Bearer "):
+        logger.error(f"❌ [ERROR] Invalid authorization header: {auth_header}")
+        return 401, None
+
+    id_token_str = auth_header.split(" ", 1)[1]
+    idinfo = None
+    try:
+        idinfo = get_id_info(id_token_str)
+    except Exception as e:
+        try:
+            email_guess = extract_email_from_token(id_token_str)
+            chat_id = sanitize_id(email_guess)
+            id_token_str = _refresh_id_token(chat_id)
+            idinfo = get_id_info(id_token_str)
+        except Exception as refresh_error:
+            logger.error(f"❌ [ERROR] Refresh token has failed: {refresh_error}")
+            return 401, None
+        
+    if not idinfo:
+        logger.error(f"❌ [ERROR] Invalid ID token: {id_token_str}")
+        return 401, "Invalid ID token"
+    
+    email = idinfo.get("email")
+    if not idinfo.get("email_verified"):
+        logger.error(f"❌ [ERROR] Email not verified: {email}")
+        return 403, None 
+
+    allowed = os.getenv("ALLOWED_EMAILS", "").split(",")
+    if email not in allowed:
+        logger.critical(f"❌ [CRITICAL] Unauthorized email: {email}")
+        return 403, None
+    
+    chat_id = sanitize_id(email)
+    if not chat_id:
+        logger.error(f"❌ [ERROR] Invalid chat_id: {chat_id}")
+        return 401, None
+    
+    return 200, chat_id
 
 
 def handle_google_auth(request):
@@ -80,8 +145,8 @@ def handle_google_auth(request):
     name    = idinfo.get("name")
     chat_id = base64.urlsafe_b64encode(email.encode("utf-8")).decode("ascii").rstrip("=")
 
-    # Salva refresh_token e perfil no Firestore
-    firestore_client.collection("users").document(chat_id).set({
+    # Salva refresh_token e perfil do usuário
+    get_user_doc(chat_id).set({
         "email":         email,
         "name":          name,
         "refresh_token": refresh,

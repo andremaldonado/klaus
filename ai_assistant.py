@@ -81,11 +81,6 @@ def generate_tasks_suggestion(tasks: List[Dict[str, Any]], events: str, user_con
 
 
 def interpret_user_message(user_message: str) -> Dict[str, Any]:
-    """
-    Interpreta a mensagem do usuário, classificando a intenção e extraindo
-    campos como título, datas (início/término) e outros detalhes.
-    Usa python-dateparser para entender datas naturais em português.
-    """
     text = user_message.strip()
     msg_lower = text.lower()
     

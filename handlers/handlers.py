@@ -115,12 +115,12 @@ def handle_general_chat(chat_id: str, user_message: str) -> str:
     # Fetch latest messages
     latest_messages = get_latest_messages(chat_id)
     if len(latest_messages) > 0:
-        memory_block += "\n\nMensagens mais recentes que vocês trocaram, da mais recente para a mais antiga, considere isso caso seja necessário uma conversa fluida:\n"
+        memory_block += "\n\nMensagens mais recentes que vocês trocaram, da mais recente para a mais antiga, considere isso para que a conversa seja fluida:\n"
         for message in reversed(latest_messages): 
             if message["role"] == "user":
                 memory_block += f"Usuário: {message['text']}\n"
             else:
-                memory_block += f"Assistente: {message['text']}\n"
+                memory_block += f"Klaus: {message['text']}\n"
 
     # Check for calendar and task intents to include in the memory block
     intents = check_intents(user_message)
