@@ -5,13 +5,11 @@ import pytz
 import logging
 
 from ai_assistant import interpret_user_message
-from auth.auth_handler import handle_google_auth, get_id_info
-from auth.utils import refresh_id_token, extract_email_from_token
+from auth.auth_handler import handle_google_auth, authenticate_request
+from auth.utils import sanitize_id
 from datetime import datetime, timezone
 from handlers.handlers import handle_task_status, handle_new_task, handle_task_conclusion, handle_general_chat, handle_list_calendar, handle_create_calendar
 
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
 from pydantic import ValidationError
 from schemas import ChatRequest
 
@@ -22,11 +20,6 @@ TIMEZONE = pytz.timezone(os.getenv("TIMEZONE", "America/Sao_Paulo"))
 _ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
 logging.basicConfig(level=logging.DEBUG if _ENVIRONMENT == "dev" else logging.INFO)
 logger = logging.getLogger(__name__)
-
-
-def _sanitize_id(raw: str) -> str:
-    token = base64.urlsafe_b64encode(raw.encode("utf-8")).decode("ascii")
-    return token.rstrip("=")
 
 
 @functions_framework.http
@@ -56,38 +49,10 @@ def webhook(request):
     }
 
     chat_id = None
-
-    auth_header = request.headers.get("Authorization", "")
-    if not auth_header.startswith("Bearer "):
-        return "Missing or invalid Authorization header", 401, headers
-
-    id_token_str = auth_header.split(" ", 1)[1]
-    try:
-        idinfo = get_id_info(id_token_str)
-    except Exception as e:
-        logger.warning(f"⚠️ Invalid Token: {e} — trying auto-refresh")
-        try:
-            email_guess = extract_email_from_token(id_token_str)
-            chat_id = _sanitize_id(email_guess)
-            id_token_str = refresh_id_token(chat_id)
-            idinfo = get_id_info(id_token_str)
-        except Exception as refresh_error:
-            logger.error(f"❌ Refresh token has failed: {refresh_error}")
-            return f"Invalid ID token and refresh failed: {refresh_error}", 401, headers
-
-    email = idinfo.get("email")
-    if not idinfo.get("email_verified"):
-        return "Email not verified", 403, headers
-
-    allowed = os.getenv("ALLOWED_EMAILS", "").split(",")
-    if email not in allowed:
-        return "Unauthorized user", 403, headers
-
-    chat_id = _sanitize_id(email)
+    response_code, chat_id = authenticate_request(request.headers.get("Authorization", ""))
     logger.debug(f"▶️ [DEBUG] chat_id = {chat_id}")
-
-    if chat_id is None:
-        return "Unauthorized user - no chat ID", 403, headers
+    if chat_id is None  or response_code != 200:
+        return "Unauthorized user", response_code, headers
 
     body = ""
     try:

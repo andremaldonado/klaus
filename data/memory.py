@@ -4,10 +4,11 @@ import uuid
 import pytz
 import logging
 
-from datetime import datetime, timezone
+from data.utils import get_firestore_client
+
+from datetime import datetime
 from google import genai
-from google.cloud import firestore
-from typing import Tuple, Dict, Any, List, Optional
+from typing import Tuple, Dict, Any, List
 
 
 # Constants
@@ -15,7 +16,7 @@ TIMEZONE = pytz.timezone(os.getenv("TIMEZONE", "America/Sao_Paulo"))
 _ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
 
 # Database configuration
-firestore_client = firestore.Client(project=os.getenv("DB_PROJECT_ID"), database=os.getenv("DB_NAME"))
+firestore_client = get_firestore_client()
 
 # AI Configuration
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
