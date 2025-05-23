@@ -16,7 +16,7 @@ from typing import Any, Dict, Tuple, Union
 from flask import Request
 
 
-_TOKEN_URL = "https://oauth2.googleapis.com/token"
+TOKEN_URI = "https://oauth2.googleapis.com/token"
 
 
 # logging configuration
@@ -118,7 +118,7 @@ def handle_google_auth(request):
     }
 
     resp = requests.post(
-        _TOKEN_URL,
+        TOKEN_URI,
         data=data,
         headers={"Content-Type": "application/x-www-form-urlencoded"}
     )
