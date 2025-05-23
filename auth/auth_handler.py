@@ -71,12 +71,7 @@ def handle_google_auth(request):
 
     # Valida o ID token (JWT)
     try:
-        idinfo = google_id_token.verify_oauth2_token(
-            idtok,
-            google_requests.Request(),
-            os.getenv("GOOGLE_CLIENT_ID"),
-            clock_skew_in_seconds=10 if _ENVIRONMENT == "dev" else 0
-        )
+        idinfo = get_id_info(idtok)
     except Exception as e:
         logger.debug(f"❌ [ERROR] Invalid ID token: {e}")
         return ("Invalid ID token", 401, headers)
@@ -95,3 +90,13 @@ def handle_google_auth(request):
 
     logger.debug(f"▶️ [DEBUG] User {chat_id} ({email}) authorized with refresh token: {refresh!r}. Id token: {idtok!r}. Name: {name!r}")
     return (jsonify({"idToken": idtok, "email": email, "name": name}), 200, headers)
+
+
+def get_id_info(id_token_str):
+    idinfo = google_id_token.verify_oauth2_token(
+        id_token_str,
+        google_requests.Request(),
+        os.getenv("GOOGLE_CLIENT_ID"),
+        clock_skew_in_seconds=10 if _ENVIRONMENT == "dev" else 0
+    )
+    return idinfo
