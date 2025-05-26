@@ -24,7 +24,6 @@ logger = logging.getLogger(__name__)
 def list_today_events(chat_id: str) -> list[str]:
     try:
         creds = load_credentials(chat_id, SCOPES)
-        logger.debug("▶️ [DEBUG] calling events().list with token:", creds.token)
         service = build("calendar", "v3", credentials=creds)
         now = datetime.now(TIMEZONE).isoformat()
         end = datetime.now(TIMEZONE).replace(hour=23, minute=59, second=59, microsecond=0).isoformat()
@@ -32,7 +31,6 @@ def list_today_events(chat_id: str) -> list[str]:
             calendarId="primary", timeMin=now, timeMax=end,
             singleEvents=True, orderBy="startTime"
         ).execute().get("items", [])
-        logger.debug("▶️ [DEBUG] raw calendar response:", events)
         if not events:
             return ["Nenhum evento para hoje."]
         return [
@@ -40,7 +38,7 @@ def list_today_events(chat_id: str) -> list[str]:
             for e in events
         ]
     except Exception as e:
-        logger.debug("❌ [ERROR] Error listing events:", repr(e))
+        logger.error("❌ [ERROR] Error listing events:", repr(e))
         raise
 
 def create_event(chat_id: str, summary: str, start: str, end: str) -> str:

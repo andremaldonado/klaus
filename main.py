@@ -6,9 +6,8 @@ import logging
 
 from ai_assistant import interpret_user_message
 from auth.auth_handler import handle_google_auth, authenticate_request
-from auth.utils import sanitize_id
 from datetime import datetime, timezone
-from handlers.handlers import handle_task_status, handle_new_task, handle_task_conclusion, handle_general_chat, handle_list_calendar, handle_create_calendar
+from handlers.handlers import handle_task_status, handle_new_task, handle_task_conclusion, handle_general_chat, handle_list_calendar, handle_create_calendar, handle_list_user_list_items, handle_create_list_item
 
 from pydantic import ValidationError
 from schemas import ChatRequest
@@ -69,7 +68,6 @@ def webhook(request):
 
         # Interpret intent
         message = interpret_user_message(user_message)
-        logger.debug(f"▶️ [DEBUG] message = {message}")
         intent = message.get("type")
 
         # Dispatch based on intent
@@ -83,6 +81,10 @@ def webhook(request):
             response = handle_new_task(chat_id, user_message, message.get("title"), message.get("priority"), message.get("start_date"))
         elif intent == "task_conclusion":
             response = handle_task_conclusion(chat_id, user_message, message.get("title"))
+        elif intent == "create_list_item":
+            response = handle_create_list_item(chat_id, user_message, message.get("title"), message.get("items"))
+        elif intent == "list_user_list_items":
+            response = handle_list_user_list_items(chat_id, user_message, message.get("title"))
         else:
             response = handle_general_chat(chat_id, user_message)
 

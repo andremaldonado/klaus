@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 from ai_assistant import generate_tasks_suggestion, chat, check_intents
 from data.memory import save_message, save_embedding, fetch_similar_memories, get_latest_messages
+from data.list import get_list, add_items_to_list
 from externals.habitica_api import get_tasks, find_task_by_message, create_task_todo, complete_task
 from externals.calendar_api import list_today_events, create_event
 
@@ -58,7 +59,10 @@ def handle_task_status(chat_id: str, user_message: str, start_date: str) -> str:
 
 
 def handle_new_task(chat_id: str, user_message: str, title: str, priority: str, start_date: str) -> str:
-    title = title or user_message
+    if not title:
+        response = "Parece que você não especificou o título da tarefa. Lembre-se de colocar o título da tarefa entre \"aspas\"."
+        return response
+
     _save_message(False, user_message, chat_id)
     priority = PRIORITY_MAP.get(priority, 1)
     iso_date = _parse_iso_date(start_date)
@@ -69,6 +73,10 @@ def handle_new_task(chat_id: str, user_message: str, title: str, priority: str, 
 
 
 def handle_task_conclusion(chat_id: str, user_message: str, title: str) -> str:
+    if not title:
+        response = "Parece que você não especificou o título da tarefa. Lembre-se de colocar o título da tarefa entre \"aspas\"."
+        return response
+    
     _save_message(False, user_message, chat_id)
     tasks = get_tasks()
     match = find_task_by_message(tasks, title)
@@ -90,12 +98,66 @@ def handle_list_calendar(chat_id: str, user_message: str) -> str:
 
 
 def handle_create_calendar(chat_id: str, user_message: str, title: str, start: str, end: str) -> str:
+    if not title:
+        response = "Parece que você não especificou o título da agenda. Lembre-se de colocar o título do seu evento entre \"aspas\"."
+        return response
+
     _save_message(False, user_message, chat_id)
     try:
         create_event(chat_id, title, start, end)
         response = f"Evento '{title}' criado na sua agenda."
     except Exception as e:
         response = "Parece que houve um erro ao acessar sua agenda. Para autorizar, digite \"Autorizar agenda\". Erro 003."
+    _save_message(True, response, chat_id)
+    return response
+
+
+def handle_create_list_item(chat_id: str, user_message: str, title: str, items: list[str]) -> str:
+    if not items:
+        response = "Parece que você não especificou nenhum item para adicionar à lista. Para fazer isso, digite o que você quer adicionar à lista entre \"aspas\"."
+        return response
+
+    _save_message(False, user_message, chat_id)
+    response = ""
+    try:
+        add_items_to_list(chat_id, title, items)
+        context = f"Parece que o usuário solicitou que você criasse os itens abaixo na lista \"{title}\":\n"
+        context += "\n - ".join(items)
+        context += "Responda ao usuário que os itens foram criados com sucesso.\n"
+        context += "Inclua o que mais achar necessário dado o contexto da mensagem.\n\n"
+        response = chat(user_message, context)
+    except Exception as e:
+        response = "Parece que houve um erro ao criar o item na lista."
+        logger.error(f"❌ [ERROR] Error creating list item: {e}")
+        return response
+    
+    if not response:
+        response = "Parece que houve um erro ao criar o item na lista."
+        logger.warning(f"⚠️ [WARNING] Empty list item: {e}")
+
+    _save_message(True, response, chat_id)
+    return response
+
+
+def handle_list_user_list_items(chat_id: str, user_message: str, title: str) -> str:
+    _save_message(False, user_message, chat_id)
+    response = ""
+    list = ""
+    try:
+        logger.debug(f"▶️ [DEBUG] chat_id: {chat_id}, title: {title}, user_message: {user_message}")
+        items = get_list(chat_id, title)
+        logger.debug(f"▶️ [DEBUG] items: {items}")
+        if items:
+            list = f"Itens da lista \"{title}\":\n\n{"\n".join(items)}"
+            response = chat(user_message, list)
+            _save_message(True, response, chat_id)
+            return response
+    except Exception as e:
+        response = "Parece que houve um erro ao acessar a lista de itens."
+        logger.error(f"❌ [ERROR] Error accessing list: {e}")
+        return response
+    
+    response = "Sua lista não existe ou está vazia. Que tal começar uma nova lista?"
     _save_message(True, response, chat_id)
     return response
 
@@ -133,7 +195,7 @@ def handle_general_chat(chat_id: str, user_message: str) -> str:
         tasks = get_tasks()
         if tasks:
             memory_block += "\n\nTarefas do usuário em sua lista de tarefas, caso seja útil:"
-            memory_block += "\n{tasks}"
+            memory_block += f"\n{tasks}"
 
     # Generate response
     logger.debug(f"▶️ [DEBUG] memory_block = {memory_block}")
