@@ -34,9 +34,71 @@ CREATE_KEYWORDS = r'\b(crie|adicione|novo)\b'
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 
-def extract_list_items(text: str) -> List[str]:
-    pattern = r'"([^"]+)"'
+def _extract_date(msg_lower):
+    start_iso: Optional[str] = None
+    end_iso: Optional[str] = None
+
+    interval_match = re.search(
+        r'das?\s*(\d{1,2}:\d{2})\s*(?:às?|a)\s*(\d{1,2}:\d{2})(?:\s*no dia\s*(\d{1,2}/\d{1,2}/\d{2,4}))?',
+        msg_lower
+    )
+    if interval_match:
+        start_time = interval_match.group(1)
+        end_time = interval_match.group(2)
+        date_part = interval_match.group(3)
+        if date_part:
+            start_dt = dp_parse(f"{date_part} {start_time}", languages=['pt'], settings={'TIMEZONE': TIMEZONE.zone, 'RETURN_AS_TIMEZONE_AWARE': True})
+            end_dt = dp_parse(f"{date_part} {end_time}", languages=['pt'], settings={'TIMEZONE': TIMEZONE.zone, 'RETURN_AS_TIMEZONE_AWARE': True})
+        else:
+            today_str = datetime.now(TIMEZONE).strftime("%d/%m/%Y")
+            start_dt = dp_parse(f"{today_str} {start_time}", languages=['pt'], settings={'TIMEZONE': TIMEZONE.zone, 'RETURN_AS_TIMEZONE_AWARE': True})
+            end_dt = dp_parse(f"{today_str} {end_time}", languages=['pt'], settings={'TIMEZONE': TIMEZONE.zone, 'RETURN_AS_TIMEZONE_AWARE': True})
+        if start_dt:
+            start_iso = start_dt.strftime("%d/%m/%Y %H:%M")
+        if end_dt:
+            end_iso = end_dt.strftime("%d/%m/%Y %H:%M")
+    else:
+        date_match = re.search(
+            r'((?:hoje|amanhã|ontem|próximo[oa]? [a-zç]+|\d{1,2}/\d{1,2}/\d{2,4})(?:\s*às?\s*(\d{1,2}:\d{2}))?)',
+            msg_lower
+        )
+        if date_match:
+            date_str = date_match.group(1)
+            hour_str = date_match.group(2)
+            dt = dp_parse(
+                date_str,
+                languages=['pt'],
+                settings={
+                    'TIMEZONE': TIMEZONE.zone,
+                    'RETURN_AS_TIMEZONE_AWARE': True
+                }
+                )
+            if dt:
+                if hour_str:
+                    hour, minute = map(int, hour_str.split(":"))
+                    dt = dt.replace(hour=hour, minute=minute)
+                    start_iso = dt.strftime("%d/%m/%Y %H:%M")
+                else:
+                    start_iso = dt.strftime("%d/%m/%Y")
+                end_iso = None
+    return start_iso,end_iso
+
+
+def _extract_list_items(text: str) -> List[str]:
+    pattern = r'["“”‘’\'«»]([^"“”‘’\'\'«»]+)["“”‘’\'«»]'
     return re.findall(pattern, text)
+
+
+def check_intents(user_message: str) -> List[str]:
+    intents = []
+    msg = user_message.lower()
+
+    if re.search(r"\b(agendas?|eventos?|compromissos?|calendários?|reunião|reuniões|dia)\b", msg):
+        intents.append("calendar")
+    if re.search(r"\b(tarefas?|afazer|pendências?|atividades?|dia)\b", msg):
+        intents.append("tasks")
+
+    return intents
 
 
 def chat(message: str, context: str) -> str:
@@ -95,52 +157,8 @@ def interpret_user_message(user_message: str) -> Dict[str, Any]:
     text = user_message.strip()
     msg_lower = text.lower()
     
-    start_iso: Optional[str] = None
-    end_iso: Optional[str] = None
-
-    interval_match = re.search(
-        r'das?\s*(\d{1,2}:\d{2})\s*(?:às?|a)\s*(\d{1,2}:\d{2})(?:\s*no dia\s*(\d{1,2}/\d{1,2}/\d{2,4}))?',
-        msg_lower
-    )
-    if interval_match:
-        start_time = interval_match.group(1)
-        end_time = interval_match.group(2)
-        date_part = interval_match.group(3)
-        if date_part:
-            start_dt = dp_parse(f"{date_part} {start_time}", languages=['pt'], settings={'TIMEZONE': TIMEZONE.zone, 'RETURN_AS_TIMEZONE_AWARE': True})
-            end_dt = dp_parse(f"{date_part} {end_time}", languages=['pt'], settings={'TIMEZONE': TIMEZONE.zone, 'RETURN_AS_TIMEZONE_AWARE': True})
-        else:
-            today_str = datetime.now(TIMEZONE).strftime("%d/%m/%Y")
-            start_dt = dp_parse(f"{today_str} {start_time}", languages=['pt'], settings={'TIMEZONE': TIMEZONE.zone, 'RETURN_AS_TIMEZONE_AWARE': True})
-            end_dt = dp_parse(f"{today_str} {end_time}", languages=['pt'], settings={'TIMEZONE': TIMEZONE.zone, 'RETURN_AS_TIMEZONE_AWARE': True})
-        if start_dt:
-            start_iso = start_dt.strftime("%d/%m/%Y %H:%M")
-        if end_dt:
-            end_iso = end_dt.strftime("%d/%m/%Y %H:%M")
-    else:
-        date_match = re.search(
-            r'((?:hoje|amanhã|ontem|próximo[oa]? [a-zç]+|\d{1,2}/\d{1,2}/\d{2,4})(?:\s*às?\s*(\d{1,2}:\d{2}))?)',
-            msg_lower
-        )
-        if date_match:
-            date_str = date_match.group(1)
-            hour_str = date_match.group(2)
-            dt = dp_parse(
-                date_str,
-                languages=['pt'],
-                settings={
-                    'TIMEZONE': TIMEZONE.zone,
-                    'RETURN_AS_TIMEZONE_AWARE': True
-                }
-                )
-            if dt:
-                if hour_str:
-                    hour, minute = map(int, hour_str.split(":"))
-                    dt = dt.replace(hour=hour, minute=minute)
-                    start_iso = dt.strftime("%d/%m/%Y %H:%M")
-                else:
-                    start_iso = dt.strftime("%d/%m/%Y")
-                end_iso = None
+    # 1) Extract date information
+    start_iso, end_iso = _extract_date(msg_lower)
 
     # 2) Intent detection
     if 'preciso' in msg_lower or (re.search(INSERTION_KEYWORDS, msg_lower) and ('tarefas' in msg_lower or 'tarefa' in msg_lower)):
@@ -174,7 +192,7 @@ def interpret_user_message(user_message: str) -> Dict[str, Any]:
     # 4) Extract details for list item
     items = []
     if intent == 'create_list_item':
-        items = extract_list_items(msg_lower)
+        items = _extract_list_items(msg_lower)
 
     return {
         "message": text,
@@ -186,15 +204,3 @@ def interpret_user_message(user_message: str) -> Dict[str, Any]:
         "details": None,
         "items": items
     }
-
-
-def check_intents(user_message: str) -> List[str]:
-    intents = []
-    msg = user_message.lower()
-
-    if re.search(r"\b(agendas?|eventos?|compromissos?|calendários?|reunião|reuniões|dia)\b", msg):
-        intents.append("calendar")
-    if re.search(r"\b(tarefas?|afazer|pendências?|atividades?|dia)\b", msg):
-        intents.append("tasks")
-
-    return intents
