@@ -211,6 +211,17 @@ def test_create_list_items():
     assert result["start_date"] is None
     assert result["end_date"] is None
 
+    msg = "Klaus, coloca \"ovo\" na minha lista de compras"
+    result = interpret_user_message(msg)
+    assert result["type"] == "create_list_item"
+    assert result["title"] == "compras"
+    assert result["items"] == ["ovo"]
+    assert result["priority"] is None
+    assert result["start_date"] is None
+    assert result["end_date"] is None
+
+def test_create_list_items_without_quotes():
+
     msg = "Acrescente banana na minha lista de compras"
     result = interpret_user_message(msg)
     assert result["type"] == "create_list_item"

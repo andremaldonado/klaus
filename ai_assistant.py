@@ -24,6 +24,11 @@ BASIC_INSTRUCTIONS = (
     "- Evite formatação em Markdown.\n"
     "- Use emojis quando entender ser necessário.\n\n"
 )
+INSERTION_KEYWORDS = r'\b(?:coloque|coloca|colocar|adicione|adicionar|ponha|inclua|incluir|insira|acrescente|crie)\b'
+SHOW_KEYWORDS = r'\b(?:mostre|tenho|quais)\b'
+FINISH_KEYWORDS = r'\b(?:terminei|já fiz|concluí|acabei|finalizei)\b'
+CREATE_KEYWORDS = r'\b(crie|adicione|novo)\b'
+
 
 # AI Configuration
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
@@ -138,17 +143,17 @@ def interpret_user_message(user_message: str) -> Dict[str, Any]:
                 end_iso = None
 
     # 2) Intent detection
-    if 'preciso' in msg_lower or (re.search(r'\b(coloque|colocar|adicione|adicionar|ponha|inclua|incluir|insira|acrescente|crie)\b', msg_lower) and ('tarefas' in msg_lower or 'tarefa' in msg_lower)):
+    if 'preciso' in msg_lower or (re.search(INSERTION_KEYWORDS, msg_lower) and ('tarefas' in msg_lower or 'tarefa' in msg_lower)):
         intent = 'new_task'
-    elif re.search(r'\b(mostre|tenho|quais)\b', msg_lower) and ('tarefas' in msg_lower or 'tarefa' in msg_lower):
+    elif re.search(SHOW_KEYWORDS, msg_lower) and ('tarefas' in msg_lower or 'tarefa' in msg_lower):
         intent = 'task_status'
-    elif re.search(r'\b(terminei|já fiz|concluí|acabei|finalizei)\b', msg_lower):
+    elif re.search(FINISH_KEYWORDS, msg_lower):
         intent = 'task_conclusion'
-    elif re.search(r'\b(quais|mostre)\b', msg_lower) and 'eventos' in msg_lower:
+    elif re.search(SHOW_KEYWORDS, msg_lower) and 'eventos' in msg_lower:
         intent = 'list_calendar'
-    elif (re.search(r'\b(crie|adicione|novo)\b', msg_lower) and 'evento' in msg_lower) or re.search(r'\b(reunião.*às)\b', msg_lower):
+    elif (re.search(CREATE_KEYWORDS, msg_lower) and 'evento' in msg_lower) or re.search(r'\b(reunião.*às)\b', msg_lower):
         intent = 'create_calendar'
-    elif re.search(r'\b(coloque|colocar|adicione|adicionar|ponha|inclua|incluir|insira|acrescente|crie)\b', msg_lower) and re.search(r'\blista\b', msg_lower):
+    elif re.search(INSERTION_KEYWORDS, msg_lower) and re.search(r'\blista\b', msg_lower):
         intent = 'create_list_item'
     elif re.search(r'\b(de)\b', msg_lower) and re.search(r'\blista\b', msg_lower):
         intent = 'list_user_list_items'
