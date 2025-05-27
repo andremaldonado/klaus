@@ -6,13 +6,17 @@ import logging
 
 from ai_assistant import interpret_user_message
 from auth.auth_handler import handle_google_auth, authenticate_request
-from datetime import datetime, timezone
-from handlers.handlers import handle_task_status, handle_new_task, handle_task_conclusion, handle_general_chat, handle_list_calendar, handle_create_calendar, handle_list_user_list_items, handle_create_list_item
+from datetime import datetime
+from handlers.general import handle_general_chat
+from handlers.calendar import handle_list_calendar, handle_create_calendar
+from handlers.task import handle_task_status, handle_new_task, handle_task_conclusion
+from handlers.list import handle_create_list_item, handle_list_user_list_items
 
 from pydantic import ValidationError
 from schemas import ChatRequest
 
 
+# Constants
 TIMEZONE = pytz.timezone(os.getenv("TIMEZONE", "America/Sao_Paulo"))
 
 # logging configuration
@@ -62,6 +66,7 @@ def webhook(request):
 
     try:
         user_message = body.text
+        logger.debug(f"▶️ [DEBUG] user_message = {user_message}")
         if not user_message:
             logger.error(f"❌ [ERROR] Bad request: {err}")
             return "Bad Request: No text provided", 400, headers
