@@ -55,7 +55,6 @@ def handle_general_chat(chat_id: str, user_message: str) -> str:
             memory_block += f"\n{tasks}"
 
     # Generate response
-    logger.debug(f"▶️ [DEBUG] memory_block = {memory_block}")
     response = chat(user_message, memory_block)
     save_message_embedding(True, response, chat_id)
     return response
