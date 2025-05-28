@@ -1,4 +1,4 @@
-from ai_assistant import generate_tasks_suggestion
+from handlers.ai_assistant import generate_tasks_suggestion
 from handlers.utils import parse_iso_date, save_message_embedding
 from externals.habitica_api import get_tasks, find_task_by_message, create_task_todo, complete_task
 from externals.calendar_api import list_today_events

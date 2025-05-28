@@ -2,7 +2,7 @@ import os
 import pytz
 import logging
 
-from auth.utils import load_credentials
+from auth.credentials import load_credentials
 
 from datetime import datetime, timedelta
 from google.oauth2.credentials import Credentials

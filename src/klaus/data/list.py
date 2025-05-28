@@ -3,7 +3,7 @@ import os
 import logging
 
 from datetime import datetime
-from data.utils import get_firestore_client
+from data.client import get_firestore_client
 from google.cloud.firestore_v1.collection import CollectionReference
 
 

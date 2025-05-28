@@ -1,4 +1,4 @@
-from data.utils import get_firestore_client
+from data.client import get_firestore_client
 
 def get_user_doc(chat_id: str):
     firestore_client = get_firestore_client()

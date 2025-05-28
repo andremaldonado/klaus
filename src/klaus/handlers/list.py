@@ -2,7 +2,7 @@ import os
 import logging
 
 
-from ai_assistant import chat
+from handlers.ai_assistant import chat
 from data.list import get_list, add_items_to_list, remove_items_from_list
 from handlers.utils import save_message_embedding
 from data.list import remove_items_from_list

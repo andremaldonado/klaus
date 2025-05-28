@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from ai_assistant import interpret_user_message
+from handlers.ai_assistant import interpret_user_message
 
 
 """
