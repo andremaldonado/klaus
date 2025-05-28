@@ -4,7 +4,7 @@ import functions_framework
 import pytz
 import logging
 
-from ai_assistant import interpret_user_message
+from handlers.ai_assistant import interpret_user_message
 from auth.auth_handler import handle_google_auth, authenticate_request
 from datetime import datetime
 from handlers.general import handle_general_chat

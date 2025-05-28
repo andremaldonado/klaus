@@ -4,19 +4,17 @@ import uuid
 import pytz
 import logging
 
-from data.utils import get_firestore_client
-
 from datetime import datetime
 from google import genai
+from google.cloud import firestore
 from typing import Tuple, Dict, Any, List
+
+from data.client import get_firestore_client
 
 
 # Constants
 TIMEZONE = pytz.timezone(os.getenv("TIMEZONE", "America/Sao_Paulo"))
 _ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
-
-# Database configuration
-firestore_client = get_firestore_client()
 
 # AI Configuration
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
@@ -40,6 +38,7 @@ def save_message(chat_id: str, role: str, text: str) -> Tuple[str, Dict[str, Any
         "text": text,
         "timestamp": datetime.now(TIMEZONE).isoformat()
     }
+    firestore_client = get_firestore_client()
     doc_ref = firestore_client.collection("messages").add(data)
     return doc_ref[1].id, data
 
@@ -83,6 +82,7 @@ def fetch_similar_memories(chat_id: str, query_text: str, top_k: int = 3) -> Lis
 
 def get_latest_messages(chat_id: str, limit: int = 16) -> List[Dict[str, Any]]:
     try:
+        firestore_client = get_firestore_client()
         messages_ref = firestore_client.collection("messages")
         messages_ref = messages_ref.where("chat_id", "==", chat_id)
         query = messages_ref.order_by("timestamp", direction=firestore.Query.DESCENDING).limit(limit)

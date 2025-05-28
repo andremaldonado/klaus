@@ -2,12 +2,11 @@ import pytz
 import os
 import logging
 
-from ai_assistant import chat, check_intents
+from handlers.ai_assistant import chat, check_intents
 from data.memory import fetch_similar_memories, get_latest_messages
 from handlers.utils import save_message_embedding
 from externals.habitica_api import get_tasks
 from externals.calendar_api import list_today_events
-
 
 # Constants
 TIMEZONE = pytz.timezone(os.getenv("TIMEZONE", "America/Sao_Paulo"))

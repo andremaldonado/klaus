@@ -5,7 +5,7 @@ import logging
 
 from data.user import get_user_doc
 from schemas import AuthCodeRequest
-from auth.utils import extract_email_from_token, sanitize_id
+from auth.credentials import extract_email_from_token, sanitize_id
 
 from datetime import datetime, timezone
 from google.oauth2 import id_token as google_id_token
@@ -98,7 +98,6 @@ def handle_google_auth(request):
     }
 
     if request.method == "OPTIONS":
-        logger.debug(f"▶️ [BASICS] Options Request Headers: {request.headers}")
         return ("", 204, headers)
     if request.method != "POST":
         return ("Method Not Allowed", 405, headers)

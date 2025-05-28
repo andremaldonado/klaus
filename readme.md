@@ -1,7 +1,7 @@
 # Klaus Task Assistant
 
 [![Python](https://img.shields.io/badge/python-3.9+-blue)]()
-[![License](https://img.shields.io/badge/license-MIT-green)]()
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 ## Table of Contents
 
@@ -20,14 +20,14 @@
 
 ## 📝 What it is
 
-Klaus is a cloud-native bot that helps you manage your tasks via natural-language commands. 
+Klaus is a cloud-native bot that helps you manage your life via natural-language commands. 
 
 Under the hood it uses:
 
 - **Habitica API** to fetch, create and complete tasks 
 - **Google Gemini (Vertex AI)** for NLP: intent classification & task suggestions  
 - **RapidFuzz** for fuzzy matching approximate task titles  
-- **Firestore** & **ChromaDB** for conversational memory and embeddings  
+- **Firestore** & **ChromaDB** for conversational memory, lists management and embeddings  
 - **Functions Framework** to deploy as a Cloud Function  
 - **Google Calendar API** to fecth and create events
 
@@ -36,36 +36,47 @@ In the future, it will be much more.
 ## 🚀 Features
 
 1. **Task Status**  
-   “What are my tasks for today?” → AI-driven summary & prioritization  
 2. **Create Todo**  
-   “Remind me to buy milk tomorrow” → creates a Habitica “todo” with due date  
 3. **Complete Task**  
-   “I finished reading the book” → fuzzy-match title, then mark as complete  
 4. **List calendar events**  
-   “Which events do I have on my agenda today?” → list events you have
 5. **Create calendar events**  
-   “I need to go to my friend's house today at 3pm?” → create events on your calendar
-6. **Free-form Chat**  
-   Fallback to open-ended conversation when message is unrelated to tasks  
-7. **Persistent Memory**  
-   Stores conversation history & embeddings to carry context across chats  
+6. **Manage lists** 
+7. **Free-form Chat**  
+8. **Persistent Memory**  
 
 ## 📁 Project Structure
 
 ```
 .
-├── main.py               # Cloud Function entrypoint (webhook)
-├── ai_assistant.py       # Gemini prompt utils: chat, interpret, suggest
-├── data
-│   └── memory.py         # Firestore + ChromaDB for message/embedding storage
-├── Dockerfile            # Container image for Cloud Build / local dev
-├── externals
-│   ├── calendar_api.py   # Google Calendar client & helpers
-│   └── habitica_api.py   # Habitica HTTP client & helpers
-├── handlers
-│   ├── auth_handler.py   # OAuth2 Google authorization handler
-│   └── handlers.py       # Intent dispatch & task/calendar handlers
-└── requirements.txt      # Python dependencies
+├── src/klaus
+│   ├── auth
+|   │    ├── auth_handler.py                   # OAuth2 Google authorization handler
+|   │    └── credentials.py                    # Sanitize IDs, extract email, load OAuth credentials.
+│   ├── data
+│   |    ├── list.py                           # Firestore-based handlers for list management.
+│   |    ├── memory.py                         # Firestore + ChromaDB for message/embedding storage
+│   |    ├── user.py                           # Helper retrieves user document from Firestore collection.
+│   |    └── client.py                         # Firestore client initialization via environment variables.
+│   ├── externals
+│   |    ├── calendar_api.py                   # Google Calendar client & helpers
+│   |    └── habitica_api.py                   # Habitica HTTP client & helpers
+│   ├── handlers
+│   |    ├── ai_assistant.py                   # Intent detection, date parsing, responses.
+│   |    ├── calendar.py                       # Handlers for listing and creating calendar events.
+│   |    ├── general.py                        # Handlers for general chat logic for memory and intents.
+│   |    ├── list.py                           # Handlers for managing lists
+│   |    ├── task.py                           # Handlers for managing user tasks creation, status, and completion.
+│   |    └── utils.py                          # Date parsing and message storage utilities.
+|   ├── tests
+│   |    ├── test_check_intents.py             # Tests intent detection for calendar and tasks.
+│   |    └── test_interpret_user_message.py    # Tests interpret_user_message for task and event parsing.
+|   ├── main.py                                # Webhook handling auth and dispatching chatbot intents.
+|   └── schemas.py                             # Pydantic schemas for request validation.
+├── .gitignore                                 # You know this file
+├── Dockerfile                                 # Docker image for Python webhook application.
+├── LICENSE                                    # License file
+├── readme.md                                  # The file you are reading
+└── requirements.txt                           # List of required Python dependencies for project.
 ```
 
 ## 🔧 Prerequisites
@@ -90,6 +101,7 @@ In the future, it will be much more.
 | `GEMINI_API_KEY`              | Your Vertex AI (Gemini) API key                    |
 | `GOOGLE_CLIENT_ID`            | Cliend ID for OAuth                                |
 | `GOOGLE_CLIENT_SECRET`        | Secret for OAuth                                   |
+| `GOOGLE_REDIRECT_URI`         | Redirect URI of google auth key                    |
 | `HABITICA_USER_ID`            | Your Habitica user ID                              |
 | `HABITICA_API_TOKEN`          | Your Habitica API token                            |
 | `TIMEZONE`                    | Timezone of your preference                        |
@@ -109,16 +121,21 @@ pip install -r requirements.txt
 2. **Configure environment**
 
 ```bash
-export HABITICA_USER_ID="…"
-export HABITICA_API_TOKEN="…"
 export GEMINI_API_KEY="…"
-export DB_PROJECT_ID="my-gcp-project"
-export DB_NAME="my-firestore-db"
+export HABITICA_API_TOKEN="…"
+export HABITICA_USER_ID="…"
+export DB_PROJECT_ID="…"
+export DB_NAME="…"
+export ENVIRONMENT="…"
+export ALLOWED_EMAILS="…"
+export GOOGLE_CLIENT_ID="…"
+export GOOGLE_CLIENT_SECRET="…"
 ```
 
 3. **Start Functions Framework**
 
 ```bash
+cd src/klaus
 functions-framework --target=webhook --port=8080
 ```
 
@@ -205,6 +222,6 @@ Contributions are welcome!
 
 ## ⚖️ License
 
-This project is licensed under the MIT License. See [LICENSE](./LICENSE) for details.
+This project is licensed under the Apache License. See [LICENSE](./LICENSE) for details.
 
 Happy productivity! 🚀
