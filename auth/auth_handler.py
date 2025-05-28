@@ -98,6 +98,7 @@ def handle_google_auth(request):
     }
 
     if request.method == "OPTIONS":
+        logger.debug(f"▶️ [BASICS] Options Request Headers: {request.headers}")
         return ("", 204, headers)
     if request.method != "POST":
         return ("Method Not Allowed", 405, headers)

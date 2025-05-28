@@ -3,8 +3,9 @@ import logging
 
 
 from ai_assistant import chat
-from data.list import get_list, add_items_to_list
+from data.list import get_list, add_items_to_list, remove_items_from_list
 from handlers.utils import save_message_embedding
+from data.list import remove_items_from_list
 
 
 # logging configuration
@@ -64,5 +65,35 @@ def handle_list_user_list_items(chat_id: str, user_message: str, title: str) -> 
         return response
     
     response = "Sua lista não existe ou está vazia. Que tal começar uma nova lista?"
+    save_message_embedding(True, response, chat_id)
+    return response
+
+def handle_remove_list_item(chat_id: str, user_message: str, title: str, items: list[str]) -> str:
+    if not items:
+        response = "Parece que você não especificou nenhum item para remover da lista. Para fazer isso, digite o que você quer remover da lista entre \"aspas\"."
+        return response
+
+    save_message_embedding(False, user_message, chat_id)
+    response = ""
+    try:
+        deleted_items = remove_items_from_list(chat_id, title, items)
+        context = f"Parece que o usuário solicitou a remoção dos itens abaixo da lista \"{title}\":\n"
+        context += "\n - ".join(items)
+        if deleted_items:
+            context += "\nOs itens excluídos foram os seguintes:\n"
+            context += "\n - ".join(deleted_items)
+        else:
+            context += "\nPorém tivemos um erro e não conseguimos excluir nada.\n"    
+        context += "\nInclua informações adicionais que julgar necessárias dado o contexto.\n\n"
+        response = chat(user_message, context)
+    except Exception as e:
+        response = "Parece que houve um erro ao remover os itens da lista."
+        logger.error(f"❌ [ERROR] Error removing list items: {e}")
+        return response
+
+    if not response:
+        response = "Parece que houve um erro ao remover os itens da lista."
+        logger.warning("⚠️ [WARNING] Empty response after attempting to remove list items.")
+
     save_message_embedding(True, response, chat_id)
     return response

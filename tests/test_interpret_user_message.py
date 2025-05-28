@@ -258,7 +258,6 @@ def test_create_list_items_with_different_quotes():
     assert result["end_date"] is None
 
 def test_create_list_items_without_quotes():
-
     msg = "Acrescente banana na minha lista de compras"
     result = interpret_user_message(msg)
     assert result["type"] == "create_list_item"
@@ -267,6 +266,44 @@ def test_create_list_items_without_quotes():
     assert result["priority"] is None
     assert result["start_date"] is None
     assert result["end_date"] is None
+
+def test_remove_list_item():
+    msg = "klaus, remova o item \"requeijão\" da minha lista de compras"
+    result = interpret_user_message(msg)
+    assert result["type"] == "remove_list_item"
+    assert result["title"] == "compras"
+    assert result["items"] == ["requeijão"]
+    assert result["priority"] is None
+    assert result["start_date"] is None
+    assert result["end_date"] is None
+
+    msg = "klaus, exclua o item \"requeijão\" e 'batata' da minha lista de compras"
+    result = interpret_user_message(msg)
+    assert result["type"] == "remove_list_item"
+    assert result["title"] == "compras"
+    assert result["items"] == ["requeijão","batata"]
+    assert result["priority"] is None
+    assert result["start_date"] is None
+    assert result["end_date"] is None
+
+    msg = "apagar \"requeijão\" da lista do mercado"
+    result = interpret_user_message(msg)
+    assert result["type"] == "remove_list_item"
+    assert result["title"] == "mercado"
+    assert result["items"] == ["requeijão"]
+    assert result["priority"] is None
+    assert result["start_date"] is None
+    assert result["end_date"] is None
+
+    msg = "apagar \"requeijão\" da lista da festa da firma"
+    result = interpret_user_message(msg)
+    assert result["type"] == "remove_list_item"
+    assert result["title"] == "festa da firma"
+    assert result["items"] == ["requeijão"]
+    assert result["priority"] is None
+    assert result["start_date"] is None
+    assert result["end_date"] is None
+
 
 """
 Unrelated tests

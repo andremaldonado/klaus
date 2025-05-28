@@ -10,7 +10,7 @@ from datetime import datetime
 from handlers.general import handle_general_chat
 from handlers.calendar import handle_list_calendar, handle_create_calendar
 from handlers.task import handle_task_status, handle_new_task, handle_task_conclusion
-from handlers.list import handle_create_list_item, handle_list_user_list_items
+from handlers.list import handle_create_list_item, handle_list_user_list_items, handle_remove_list_item
 
 from pydantic import ValidationError
 from schemas import ChatRequest
@@ -28,7 +28,9 @@ logger = logging.getLogger(__name__)
 @functions_framework.http
 def webhook(request):
 
-    logger.debug(f"▶️ [DEBUG] request = {request}")
+    logger.debug(f"▶️ [BASICS] Request Method: {request.method}")
+    logger.debug(f"▶️ [BASICS] Request Path: {request.path}")
+    logger.debug(f"▶️ [BASICS] Request Headers: {request.headers}")
 
     # CORS preflight
     if request.method == "OPTIONS":
@@ -88,14 +90,18 @@ def webhook(request):
             response = handle_task_conclusion(chat_id, user_message, message.get("title"))
         elif intent == "create_list_item":
             response = handle_create_list_item(chat_id, user_message, message.get("title"), message.get("items"))
+        elif intent == 'remove_list_item':
+            response = handle_remove_list_item(chat_id, user_message, message.get("title"), message.get("items"))
         elif intent == "list_user_list_items":
             response = handle_list_user_list_items(chat_id, user_message, message.get("title"))
         else:
             response = handle_general_chat(chat_id, user_message)
 
         response = {"response": response, "intent": intent, "date": datetime.now(TIMEZONE).isoformat()}
+        logger.debug(f"▶️ [BASICS] {response}")
         return response, 200, headers
 
     except Exception as e:
         code = 500
+        logger.error(f"❌ [ERROR] General exception: {e}")
         return f"Error: {e}", code, headers

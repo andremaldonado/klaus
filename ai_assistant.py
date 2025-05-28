@@ -15,6 +15,7 @@ TIMEZONE = pytz.timezone(os.getenv("TIMEZONE", "America/Sao_Paulo"))
 TODAY_DATE = datetime.now(TIMEZONE).strftime("%d/%m/%Y %H:%M")
 BASIC_INSTRUCTIONS = (
     "Você é Klaus, um assistente pessoal pronto para ajudar em qualquer tarefa que o usuário solicitar.\n"
+    "Você usa um complexo sistema de apoio para te suportar nas operações que o usuário solicitar, como agenda, tarefas e gerenciamento de listas.\n"
     "Sua missão é manter uma conversa agradável e útil com o usuário, sempre com um tom respeitoso e conciso.\n"
     "Você pode responder perguntas, oferecer sugestões, criar tarefas, organizar eventos, manusear listas, e muito mais. \n"
     "Considere que sua memória é específica para o contexto do que o usuário está pedindo.\n"
@@ -28,6 +29,7 @@ INSERTION_KEYWORDS = r'\b(?:coloque|coloca|colocar|adicione|adicionar|ponha|incl
 SHOW_KEYWORDS = r'\b(?:mostre|tenho|quais)\b'
 FINISH_KEYWORDS = r'\b(?:terminei|já fiz|concluí|acabei|finalizei)\b'
 CREATE_KEYWORDS = r'\b(crie|adicione|novo)\b'
+REMOVAL_KEYWORDS = r'\b(remova|remove|remover|exclua|excluir|delete|deletar|apague|apagar|retire|retirar|tire|tira|tirar)\b'
 
 
 # AI Configuration
@@ -173,6 +175,8 @@ def interpret_user_message(user_message: str) -> Dict[str, Any]:
         intent = 'create_calendar'
     elif re.search(INSERTION_KEYWORDS, msg_lower) and re.search(r'\blista\b', msg_lower):
         intent = 'create_list_item'
+    elif re.search(REMOVAL_KEYWORDS, msg_lower) and re.search(r'\blista\b', msg_lower):
+        intent = 'remove_list_item'
     elif re.search(r'\b(de)\b', msg_lower) and re.search(r'\blista\b', msg_lower):
         intent = 'list_user_list_items'
     else:
@@ -183,15 +187,15 @@ def interpret_user_message(user_message: str) -> Dict[str, Any]:
     if intent in ('new_task', 'task_conclusion', 'create_calendar'):
         pattern = r'"([^"]+)"'
         title = re.findall(pattern, text)[0] if re.findall(pattern, text) else None
-    elif intent in ('create_list_item', 'list_user_list_items'):
+    elif intent in ('create_list_item', 'list_user_list_items', 'remove_list_item'):
         # tenta extrair o nome da lista após "lista de"
-        match = re.search(r'lista de ([\wçãõáéíóúâêôàèìòùü\s]+)', msg_lower)
+        match = re.search(r'\blista\b (?:\bde\b|\bdo\b|\bda\b) ([\wçãõáéíóúâêôàèìòùü\s]+)', msg_lower)
         if match:
             title = match.group(1).strip()
 
     # 4) Extract details for list item
     items = []
-    if intent == 'create_list_item':
+    if intent in ('create_list_item','remove_list_item'):
         items = _extract_list_items(msg_lower)
 
     return {
