@@ -24,11 +24,9 @@ def handle_create_list_item(chat_id: str, user_message: str, title: str, items: 
     response = ""
     try:
         add_items_to_list(chat_id, title, items)
-        context = f"Parece que o usuário solicitou que você criasse os itens abaixo na lista \"{title}\":\n"
-        context += "\n - ".join(items)
-        context += "Responda ao usuário que os itens foram criados com sucesso.\n"
-        context += "Inclua o que mais achar necessário dado o contexto da mensagem.\n\n"
-        response = chat(user_message, context)
+        response = f"Tá feito! Inclui o(s) item(ns) abaixo:\n\n"
+        response += "\n - ".join(items)
+        response += f"\n\nNa lista \"{title}\":\n"
     except Exception as e:
         response = "Parece que houve um erro ao criar o item na lista."
         logger.error(f"❌ [ERROR] Error creating list item: {e}")
@@ -48,15 +46,9 @@ def handle_list_user_list_items(chat_id: str, user_message: str, title: str) -> 
     try:
         items = get_list(chat_id, title)
         if items:
-            context = "O usuário solicitou que você listasse os itens da lista.\n"
-            context += f"A lista \"{title}\" contém os seguintes itens:\n"
-            items_list = [f"- {item['id']}: {item['text']}" for item in items]
-            context = "\n".join(items_list)
-            context += "Responda ao usuário com os itens listados de forma clara e concisa.\n"
-            context += "Você pode também sugerir que o usuário adicione novos itens à lista ou faça outras ações relacionadas.\n"
-            context += "Liste os itens no seguinte formato: - [ID] Item da lista \n"
-            context += "Inclua o que mais achar necessário dado o contexto da mensagem.\n\n"
-            response = chat(user_message, context)
+            response = f"A lista \"{title}\" contém os seguintes itens:\n"
+            items_list = [f"- [{item['id']}]: {item['text']}" for item in items]
+            response += "\n".join(items_list)
             save_message_embedding(True, response, chat_id)
             return response
     except Exception as e:
@@ -77,15 +69,11 @@ def handle_remove_list_item(chat_id: str, user_message: str, title: str, items: 
     response = ""
     try:
         deleted_items = remove_items_from_list(chat_id, title, items)
-        context = f"Parece que o usuário solicitou a remoção dos itens abaixo da lista \"{title}\":\n"
-        context += "\n - ".join(items)
         if deleted_items:
-            context += "\nOs itens excluídos foram os seguintes:\n"
-            context += "\n - ".join(deleted_items)
+            response = "\nOs itens excluídos foram os seguintes:\n"
+            response += "\n - ".join(deleted_items)
         else:
-            context += "\nPorém tivemos um erro e não conseguimos excluir nada.\n"    
-        context += "\nInclua informações adicionais que julgar necessárias dado o contexto.\n\n"
-        response = chat(user_message, context)
+            response = "\nTivemos um erro e não conseguimos excluir nada.\n"    
     except Exception as e:
         response = "Parece que houve um erro ao remover os itens da lista."
         logger.error(f"❌ [ERROR] Error removing list items: {e}")
