@@ -1,7 +1,13 @@
+import pytz
+import os
+
 from datetime import datetime, timedelta
 
 from data.memory import save_message, save_embedding 
 
+
+# Constants
+TIMEZONE = pytz.timezone(os.getenv("TIMEZONE", "America/Sao_Paulo"))
 
 # Common functions
 def parse_iso_date(date_text: str) -> str | None:
