@@ -37,8 +37,7 @@ def handle_task_conclusion(chat_id: str, user_message: str, title: str) -> str:
         return response
     
     save_message_embedding(False, user_message, chat_id)
-    tasks = get_tasks()
-    match = find_task_by_message(tasks, title)
+    match = find_task_by_message(title)
     complete_task(match["id"])
     response = f"✅ Tarefa \"{match['title']}\" concluída! Bom trabalho!"
     save_message_embedding(True, response, chat_id)

@@ -18,11 +18,25 @@ HEADERS = {
 }
 
 
-def find_task_by_message(tasks: List[Dict[str, Any]], message: str, threshold: int = 80) -> Dict[str, Any]:
+def _get_tasks_from_habitica(today_only: bool = False) -> List[Dict[str, Any]]:
+    url = "https://habitica.com/api/v3/tasks/user"
+    if today_only:
+        current_date = datetime.now(TIMEZONE).strftime("%Y-%m-%d")
+        url += f"?duedate={current_date}"
+    response = requests.get(url, headers=HEADERS)
+    if response.status_code == 200:
+        return response.json()["data"]
+    else:
+        raise Exception(f"Error fetching tasks: {response.status_code}")
+
+
+def find_task_by_message(message: str, threshold: int = 80) -> Dict[str, Any]:
     # Searches 'todo' and 'daily' tasks for the best Levenshtein match to `message`.
     # Returns a dict with 'id', 'title' and 'score'. Raises if best score < threshold.
     best_score = 0
     best_task: Optional[Dict[str, Any]] = None
+
+    tasks = _get_tasks_from_habitica()
 
     for t in tasks:
         if t.get("type") not in ("todo", "daily"):
@@ -39,25 +53,15 @@ def find_task_by_message(tasks: List[Dict[str, Any]], message: str, threshold: i
     return {"id": best_task["_id"], "title": best_task["text"], "score": best_score}
 
 
-def get_tasks(today_only: bool = False) -> List[Dict[str, Any]]:
-    url = "https://habitica.com/api/v3/tasks/user"
-    if today_only:
-        current_date = datetime.now(TIMEZONE).strftime("%Y-%m-%d")
-        url += f"?duedate={current_date}"
-    response = requests.get(url, headers=HEADERS)
-    if response.status_code == 200:
-        return response.json()["data"]
-    else:
-        raise Exception(f"Error fetching tasks: {response.status_code}")
-
-
-def format_tasks(tasks: List[Dict[str, Any]]) -> str:
+def get_tasks(today_only: bool = False) -> str:   
     priority_mapping = {
         0.1: "Trivial",
         1: "Easy",
         1.5: "Medium",
         2: "Hard"
     }
+
+    tasks = _get_tasks_from_habitica(today_only)
 
     todos_text: List[str] = []
     for task in tasks:

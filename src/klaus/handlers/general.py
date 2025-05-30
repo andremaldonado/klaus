@@ -20,40 +20,51 @@ logger = logging.getLogger(__name__)
 
 # General handler
 def handle_general_chat(chat_id: str, user_message: str) -> str:
-    save_message_embedding(False, user_message, chat_id)
-    
-    memory_block = ""
-
-    # Fetch context of similar memories
+    # 1) Fetch context of similar memories
+    messages = []
     relevant_memories = fetch_similar_memories(chat_id, user_message, 15)
     if relevant_memories:
-        memory_block += "\n\nContexto importante de mensagens anteriores, não ignore este contexto ao respoder:\n"
-        memory_block = "\n".join(relevant_memories)
+        messages.append({
+            "role": "system",
+            "content": "Memórias relevantes similares ao assunto tratado:" + "\n - ".join(relevant_memories)
+        })
 
-    # Fetch latest messages
-    latest_messages = get_latest_messages(chat_id)
-    if len(latest_messages) > 0:
-        memory_block += "\n\nMensagens mais recentes que vocês trocaram, da mais recente para a mais antiga, considere isso para que a conversa seja fluida:\n"
-        for message in reversed(latest_messages): 
-            if message["role"] == "user":
-                memory_block += f"Usuário: {message['text']}\n"
-            else:
-                memory_block += f"Klaus: {message['text']}\n"
+    # 2) Fetch latest messages
+    history = get_latest_messages(chat_id, 10) 
+    if history:
+        messages.append({
+            "role": "system",
+            "content": "Histórico recente de mensagens trocadas:"
+        })
+        for msg in history:
+            role = msg["role"]
+            if role == "klaus":
+                role = "system" # retrocompatibility only
+            messages.append({"role": role, "content": msg["text"]})
 
-    # Check for calendar and task intents to include in the memory block
+    # 3) User message
+    save_message_embedding(False, user_message, chat_id)
+
+    # 4) Check for calendar and task intents to include in the context
     intents = check_intents(user_message)
     if "calendar" in intents:
         events = list_today_events(chat_id)
         if events:
-            memory_block += "\n\nEventos do usuário em sua agenda, caso seja útil:"
-            memory_block += f"\n{events}"
+            messages.append({
+                "role": "system",
+                "content": f"Eventos do usuário em sua agenda, caso seja útil:\n {events}"
+            })
     if "tasks" in intents:
         tasks = get_tasks()
         if tasks:
-            memory_block += "\n\nTarefas do usuário em sua lista de tarefas, caso seja útil:"
-            memory_block += f"\n{tasks}"
+            messages.append({
+                "role": "system",
+                "content": f"Tarefas do usuário em sua lista de tarefas, caso seja útil:\n {tasks}"
+            })
 
-    # Generate response
-    response = chat(user_message, memory_block)
+    # 5) Generate response
+    response = chat(user_message, messages)
+
+    # 6) Save klaus response
     save_message_embedding(True, response, chat_id)
     return response

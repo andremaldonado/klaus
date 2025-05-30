@@ -1,4 +1,4 @@
-from handlers.ai_assistant import check_intents
+from src.klaus.handlers.ai_assistant import check_intents
 
 
 def test_check_intents_with_calendar_keywords():

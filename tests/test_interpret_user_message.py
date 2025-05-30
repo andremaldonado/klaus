@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from handlers.ai_assistant import interpret_user_message
+from src.klaus.handlers.ai_assistant import interpret_user_message
 
 
 """
@@ -26,6 +26,14 @@ def test_create_task_with_natural_date():
     tomorrow = (datetime.now() + timedelta(days=1)).replace(hour=14, minute=0, second=0, microsecond=0)
     expected_date = tomorrow.strftime("%d/%m/%Y %H:%M")
     assert result["start_date"] == expected_date
+
+    msg = 'Tenho que "levar a roupa para lavar"'
+    result = interpret_user_message(msg)
+    assert result["type"] == "new_task"
+    assert "levar a roupa para lavar" in result["title"].lower()
+    assert result["priority"] is None
+    assert result["start_date"] is None
+    assert result["end_date"] is None
 
     msg = 'Insira, por favor, "Responder para o Lui sobre a formatação dos times com o novo EM" na minha lista de tarefas para amanhã às 15:00'
     result = interpret_user_message(msg)
@@ -112,11 +120,20 @@ def test_task_conclusion_statement():
     assert result["start_date"] is None
     assert result["end_date"] is None
 
-    msg = 'Finalizei a tarefa de "abrir a vaga para o time de lojas"'
+    msg = 'Finalizei a tarefa de "abrir a vaga"'
     result = interpret_user_message(msg)
     assert result["type"] == "task_conclusion"
     assert result["title"] is not None
-    assert "abrir a vaga para o time de lojas" in result["title"].lower()
+    assert "abrir a vaga" in result["title"].lower()
+    assert result["priority"] is None
+    assert result["start_date"] is None
+    assert result["end_date"] is None
+
+    msg = 'Terminei a tarefa "Montar o abajour"'
+    result = interpret_user_message(msg)
+    assert result["type"] == "task_conclusion"
+    assert result["title"] is not None
+    assert "Montar o abajour" in result["title"].lower()
     assert result["priority"] is None
     assert result["start_date"] is None
     assert result["end_date"] is None
