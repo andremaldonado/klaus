@@ -26,7 +26,7 @@ def handle_create_list_item(chat_id: str, user_message: str, title: str, items: 
         add_items_to_list(chat_id, title, items)
         response = f"Tá feito! Inclui o(s) item(ns) abaixo:\n\n"
         response += "\n - ".join(items)
-        response += f"\n\nNa lista \"{title}\":\n"
+        response += f"\n\nNa lista \"{title}\"."
     except Exception as e:
         response = "Parece que houve um erro ao criar o item na lista."
         logger.error(f"❌ [ERROR] Error creating list item: {e}")

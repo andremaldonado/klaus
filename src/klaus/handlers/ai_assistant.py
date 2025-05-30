@@ -5,26 +5,28 @@ import re
 
 from dateparser import parse as dp_parse
 from datetime import datetime, timezone, timedelta
-from externals.habitica_api import format_tasks
 from google import genai
+from google.genai import types
 from typing import List, Dict, Any, Optional
 
 
 # Constants
 TIMEZONE = pytz.timezone(os.getenv("TIMEZONE", "America/Sao_Paulo"))
 TODAY_DATE = datetime.now(TIMEZONE).strftime("%d/%m/%Y %H:%M")
-BASIC_INSTRUCTIONS = (
-    "Você é Klaus, um assistente pessoal pronto para ajudar em qualquer tarefa que o usuário solicitar.\n"
-    "Você usa um complexo sistema de apoio para te suportar nas operações que o usuário solicitar, como agenda, tarefas e gerenciamento de listas.\n"
-    "Sua missão é manter uma conversa agradável e útil com o usuário, sempre com um tom respeitoso e conciso.\n"
-    "Você pode responder perguntas, oferecer sugestões, criar tarefas, organizar eventos, manusear listas, e muito mais. \n"
-    "Considere que sua memória é específica para o contexto do que o usuário está pedindo.\n"
-    f"Hoje é {TODAY_DATE}.\n\n"
-    "=== Instruções de Formatação da resposta ===\n"
-    "- Use texto simples. Você pode usar quebras de linha para separar tópicos.\n"
-    "- Evite formatação em Markdown.\n"
-    "- Use emojis quando entender ser necessário.\n\n"
-)
+BASIC_INSTRUCTIONS = [
+    "Você é Klaus, um assistente pessoal pronto para ajudar em qualquer tarefa que o usuário solicitar.",
+    "Você usa um complexo sistema de apoio para te suportar nas operações que o usuário solicitar, como agenda, tarefas e gerenciamento de listas.",
+    "Sua missão é manter uma conversa agradável e útil com o usuário, sempre com um tom respeitoso e conciso.",
+    "Você pode responder perguntas, oferecer sugestões, criar tarefas, organizar eventos, manusear listas, e muito mais.",
+    "Considere que sua memória é específica para o contexto do que o usuário está pedindo.",
+    "Você usa o histórico de conversa e memórias relevantes para responder de forma natural. ",
+    "Não peça para o usuário repetir informações já dadas.", 
+    f"Hoje é {TODAY_DATE}.",
+    "=== Instruções de Formatação da resposta ===",
+    "- Use texto simples. Você pode usar quebras de linha para separar tópicos.",
+    "- Evite formatação em Markdown.",
+    "- Use emojis quando entender ser necessário."
+]
 INSERTION_KEYWORDS = r'\b(?:coloque|coloca|colocar|adicione|adicionar|ponha|inclua|incluir|insira|acrescente|crie)\b'
 SHOW_KEYWORDS = r'\b(?:mostre|tenho|quais)\b'
 FINISH_KEYWORDS = r'\b(?:terminei|já fiz|concluí|acabei|finalizei)\b'
@@ -103,16 +105,13 @@ def check_intents(user_message: str) -> List[str]:
     return intents
 
 
-def chat(message: str, context: str) -> str:
-    # Generates a message using the Gemini API based on the provided user message.
-    
-    ai_prompt_system_context = (
-        BASIC_INSTRUCTIONS +
-        "A seguir, você encontrará um contexto que pode ser importante para responder ao usuário:\n"
-        f"{context}\n\n"
-        "Com base nesse contexto, responda à mensagem do usuário de forma natural e envolvente. "
-        "Você pode fazer perguntas, oferecer sugestões ou simplesmente continuar a conversa de maneira fluida.\n"
-    )
+def chat(message: str, context: list[dict[str, str]]) -> str:
+
+    ai_prompt_system_context = []
+    for msg in context:
+        ai_prompt_system_context.append(f"{msg["content"]}")
+    for item in BASIC_INSTRUCTIONS:
+        ai_prompt_system_context.append(item)
 
     response = client.models.generate_content(
         model="gemini-2.0-flash-lite",
@@ -122,36 +121,31 @@ def chat(message: str, context: str) -> str:
             temperature=2.0
         )
     )
-
     return response.text
 
 
-def generate_tasks_suggestion(tasks: List[Dict[str, Any]], events: str, user_context: str) -> str:
+def generate_tasks_suggestion(tasks: str, events: str, user_context: str) -> str:
     # Generates a suggestion using ChatGPT based on the provided tasks and user context.
-    tasks_text = format_tasks(tasks)
     today_date = datetime.now(TIMEZONE).strftime("%d/%m/%Y %H:%M")
     
-    ai_prompt_system_context = (
-        BASIC_INSTRUCTIONS +
-        "=== Instruções de Resposta ===\n"
-        f"Abaixo estão as tarefas do usuário, separadas por ponto e vírgula:\n"
-        f"{tasks_text}\n\n"
-        "Abaixo está a agenda do usuário:\n"
-        f"{events}\n\n"
-        "Responda à solicitação do usuário considerando o contexto do usuário e as tarefas listadas.\n"
-        "Note que podem existir tarefas e eventos para outros dias ou que já foram finalizados.\n" 
-        "Considere isso para responder ao usuário de acordo com a solicitação dele.\n"
-    )
+    ai_prompt_system_context = []
+    for item in BASIC_INSTRUCTIONS:
+        ai_prompt_system_context.append(item)
+    ai_prompt_system_context.append("=== Instruções de Resposta ===")
+    ai_prompt_system_context.append(f"Abaixo estão as tarefas do usuário: {tasks}")
+    ai_prompt_system_context.append(f"Abaixo está a agenda do usuário: {events}")
+    ai_prompt_system_context.append("Responda à solicitação do usuário considerando o contexto do usuário e as tarefas listadas.")
+    ai_prompt_system_context.append("Note que podem existir tarefas e eventos para outros dias ou que já foram finalizados.")
+    ai_prompt_system_context.append("Considere isso para responder ao usuário de acordo com a solicitação dele.")
 
     response = client.models.generate_content(
-        model="gemini-2.0-flash",
+        model="gemini-2.0-flash-lite",
         contents=user_context,
         config=genai.types.GenerateContentConfig(
             system_instruction=ai_prompt_system_context,
             temperature=0.5
         )
     )
-
     return response.text
 
 

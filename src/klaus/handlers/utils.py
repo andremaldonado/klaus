@@ -29,7 +29,7 @@ def parse_iso_date(date_text: str) -> str | None:
 def save_message_embedding(bot_role: bool, text: str, chat_id: str) -> str:
     # Save message and embedding to the database
     role = "user"
-    if bot_role: role = "klaus"
+    if bot_role: role = "system"
     message_id, saved_data = save_message(chat_id, role, text)
     if role == "user":
         save_embedding(text, chat_id, message_id)
