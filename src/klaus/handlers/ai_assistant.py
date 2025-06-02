@@ -32,6 +32,7 @@ SHOW_KEYWORDS = r'\b(?:mostre|tenho|quais)\b'
 FINISH_KEYWORDS = r'\b(?:terminei|já fiz|concluí|acabei|finalizei)\b'
 CREATE_KEYWORDS = r'\b(crie|adicione|novo)\b'
 REMOVAL_KEYWORDS = r'\b(remova|remove|remover|exclua|excluir|delete|deletar|apague|apagar|retire|retirar|tire|tira|tirar)\b'
+BETWEEN_QUOTES = r'["“”‘’\'«»]([^"“”‘’\'\'«»]+)["“”‘’\'«»]'
 
 
 # AI Configuration
@@ -89,7 +90,7 @@ def _extract_date(msg_lower):
 
 
 def _extract_list_items(text: str) -> List[str]:
-    pattern = r'["“”‘’\'«»]([^"“”‘’\'\'«»]+)["“”‘’\'«»]'
+    pattern = BETWEEN_QUOTES
     return re.findall(pattern, text)
 
 
@@ -179,7 +180,7 @@ def interpret_user_message(user_message: str) -> Dict[str, Any]:
     # 3) Extract title
     title: Optional[str] = None
     if intent in ('new_task', 'task_conclusion', 'create_calendar'):
-        pattern = r'"([^"]+)"'
+        pattern = BETWEEN_QUOTES
         title = re.findall(pattern, text)[0] if re.findall(pattern, text) else None
     elif intent in ('create_list_item', 'list_user_list_items', 'remove_list_item'):
         # tenta extrair o nome da lista após "lista de"
