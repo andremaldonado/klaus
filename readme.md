@@ -27,7 +27,7 @@ Under the hood it uses:
 - **Habitica API** to fetch, create and complete tasks 
 - **Google Gemini (Vertex AI)** for NLP: intent classification & task suggestions  
 - **RapidFuzz** for fuzzy matching approximate task titles  
-- **Firestore** & **ChromaDB** for conversational memory, lists management and embeddings  
+- **Firestore** & **ChromaDB** for conversational memory, lists management, embeddings and more
 - **Functions Framework** to deploy as a Cloud Function  
 - **Google Calendar API** to fecth and create events
 
@@ -43,6 +43,7 @@ In the future, it will be much more.
 6. **Manage lists** 
 7. **Free-form Chat**  
 8. **Persistent Memory**  
+9. **Server messages for other agents**
 
 ## 📁 Project Structure
 
@@ -55,6 +56,7 @@ In the future, it will be much more.
 │   ├── data
 │   |    ├── list.py                           # Firestore-based handlers for list management.
 │   |    ├── memory.py                         # Firestore + ChromaDB for message/embedding storage
+│   |    ├── message.py                        # Firestore server sent messages
 │   |    ├── user.py                           # Helper retrieves user document from Firestore collection.
 │   |    └── client.py                         # Firestore client initialization via environment variables.
 │   ├── externals
@@ -130,6 +132,7 @@ export ENVIRONMENT="…"
 export ALLOWED_EMAILS="…"
 export GOOGLE_CLIENT_ID="…"
 export GOOGLE_CLIENT_SECRET="…"
+export FIRESTORE_EMULATOR_HOST="…"
 ```
 
 3. **Start Functions Framework**
@@ -153,20 +156,21 @@ curl -X POST http://localhost:8080 \
 Build and run locally with Docker:
 
 ```bash
-docker build -t klaus-assistant .
-docker run -e HABITICA_USER_ID="550e…44000" \
-           -e HABITICA_API_TOKEN="abcdef…" \
-           -e GEMINI_API_KEY="AIzaSy…" \
-           -e GOOGLE_CLIENT_ID="10047…apps.googleusercontent.com" \
-           -e GOOGLE_CLIENT_SECRET="GOCSPX-…" \
-           -e GOOGLE_REDIRECT_URI="http://localhost:8081/" \
-           -e ALLOWED_EMAILS="you@example.com,other@ex.com" \
-           -e DB_PROJECT_ID="my-gcp-project" \
-           -e DB_NAME="(default)" \
-           -e CHROMA_STORAGE_PATH="./storage/chroma" \
-           -e TIMEZONE="America/Sao_Paulo" \
-           -p 8080:8080 klaus-assistant
-
+docker build -t "klaus:Dockerfile" .
+docker run \
+    -e GEMINI_API_KEY="..." \
+    -e GOOGLE_CLIENT_ID="...apps.googleusercontent.com" \
+    -e GOOGLE_CLIENT_SECRET="..." \
+    -e FIRESTORE_EMULATOR_HOST="..." \
+    -e DB_PROJECT_ID="..." \
+    -e DB_NAME="..." \
+    -e ALLOWED_EMAILS="...@gmail.com" \
+    -e HABITICA_API_TOKEN="..." \
+    -e HABITICA_USER_ID="..." \
+    -e ENVIRONMENT="dev" \
+    --network=host \
+    -p 8080:8080 \
+    klaus:Dockerfile
 ```
 
 ## ☁️ Deployment (GCP Cloud Build + Cloud Functions)
