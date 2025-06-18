@@ -15,5 +15,5 @@ COPY src/klaus/ .
 ENV PORT=8080
 EXPOSE 8080
 
-# Run the Functions Framework to serve the 'webhook' function
-ENTRYPOINT ["functions-framework", "--target=webhook", "--port=8080"]
+# Run the Functions Framework to serve the 'create_app' function
+ENTRYPOINT ["functions-framework", "--target=create_app", "--port=8080"]

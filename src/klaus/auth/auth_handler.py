@@ -68,7 +68,7 @@ def authenticate_request(auth_header) -> Tuple[int, Union[str, Dict[str, Any]]]:
         
     if not idinfo:
         logger.error(f"❌ [ERROR] Invalid ID token: {id_token_str}")
-        return 401, "Invalid ID token"
+        return 401, "Invalid ID token - Authentication failed"
     
     email = idinfo.get("email")
     if not idinfo.get("email_verified"):
