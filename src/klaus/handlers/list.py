@@ -46,8 +46,8 @@ def handle_list_user_list_items(chat_id: str, user_message: str, title: str) -> 
     try:
         items = get_list(chat_id, title)
         if items:
-            response = f"A lista \"{title}\" contém os seguintes itens:\n"
-            items_list = [f"- [{item['id']}]: {item['text']}" for item in items]
+            response = f"A lista \"{title.capitalize()}\" contém os seguintes itens:\n"
+            items_list = [f"- {item['text'].capitalize()}" for item in items]
             response += "\n".join(items_list)
             save_message_embedding(True, response, chat_id)
             return response
@@ -59,6 +59,7 @@ def handle_list_user_list_items(chat_id: str, user_message: str, title: str) -> 
     response = "Sua lista não existe ou está vazia. Que tal começar uma nova lista?"
     save_message_embedding(True, response, chat_id)
     return response
+
 
 def handle_remove_list_item(chat_id: str, user_message: str, title: str, items: list[str]) -> str:
     if not items:
