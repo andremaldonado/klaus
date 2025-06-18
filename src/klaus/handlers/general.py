@@ -7,6 +7,8 @@ from data.memory import fetch_similar_memories, get_latest_messages
 from handlers.utils import save_message_embedding
 from externals.habitica_api import get_tasks
 from externals.calendar_api import list_today_events
+from data.message import get_pending_message, mark_message_as_sent
+
 
 # Constants
 TIMEZONE = pytz.timezone(os.getenv("TIMEZONE", "America/Sao_Paulo"))
@@ -68,3 +70,19 @@ def handle_general_chat(chat_id: str, user_message: str) -> str:
     # 6) Save klaus response
     save_message_embedding(True, response, chat_id)
     return response
+
+
+def handle_get_message(chat_id: str) -> dict | None:
+    message = get_pending_message(chat_id)
+
+    if not message:
+        return None
+    
+    mark_message_as_sent(chat_id, message["id"])
+    save_message_embedding(True, message["text"], chat_id)
+    payload = {
+        "id": message["id"],
+        "text": message["text"],
+        "created_at": message.get("created_at")
+    }
+    return payload
