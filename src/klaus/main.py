@@ -5,7 +5,7 @@ import logging
 import time
 
 from datetime import datetime
-from flask import Flask, request, jsonify, make_response, Response
+from flask import Flask, request, jsonify, make_response
 from handlers.ai_assistant import interpret_user_message
 from auth.auth_handler import handle_google_auth, authenticate_request
 from handlers.general import handle_general_chat, handle_get_message
@@ -52,11 +52,11 @@ def create_app(*args, **kwargs):
     @app.route('/check-message')
     def check_message():
         auth_header = request.headers.get("Authorization", "")
-        response_code, chat_id = authenticate_request(auth_header)
-        if chat_id is None or response_code != 200:
-            return make_response("Unauthorized user", response_code)
+        response_code, user = authenticate_request(auth_header)
+        if not user or response_code != 200 or not getattr(user, "chat_id", None):
+            return make_response("Unauthorized user", 401)
             
-        message = handle_get_message(chat_id)
+        message = handle_get_message(user.chat_id)
         if message:
             logger.debug(f"▶️ {datetime.now(TIMEZONE).strftime('%H:%M:%S')} - Found pending message: ({message['id']}) {message['text']})")
             payload = {
@@ -74,8 +74,8 @@ def create_app(*args, **kwargs):
         logger.debug(f"▶️ {datetime.now(TIMEZONE).strftime('%H:%M:%S')} - webhook() -> {request.path}")
         
         auth_header = request.headers.get("Authorization", "")
-        response_code, chat_id = authenticate_request(auth_header)
-        if chat_id is None or response_code != 200:
+        response_code, user = authenticate_request(auth_header)
+        if user.chat_id is None or response_code != 200:
             return make_response("Unauthorized user", response_code)
 
         try:
@@ -94,23 +94,23 @@ def create_app(*args, **kwargs):
             intent = message.get("type")
 
             if intent == "list_calendar":
-                response = handle_list_calendar(chat_id, user_message)
+                response = handle_list_calendar(user.chat_id, user_message)
             elif intent == "create_calendar":
-                response = handle_create_calendar(chat_id, user_message, message.get("title"), message.get("start_date"), message.get("end_date"))
+                response = handle_create_calendar(user.chat_id, user_message, message.get("title"), message.get("start_date"), message.get("end_date"))
             elif intent == "task_status":
-                response = handle_task_status(chat_id, user_message, message.get("start_date"))
+                response = handle_task_status(user, user_message, message.get("start_date"))
             elif intent == "new_task":
-                response = handle_new_task(chat_id, user_message, message.get("title"), message.get("priority"), message.get("start_date"))
+                response = handle_new_task(user, user_message, message.get("title"), message.get("priority"), message.get("start_date"))
             elif intent == "task_conclusion":
-                response = handle_task_conclusion(chat_id, user_message, message.get("title"))
+                response = handle_task_conclusion(user, user_message, message.get("title"))
             elif intent == "create_list_item":
-                response = handle_create_list_item(chat_id, user_message, message.get("title"), message.get("items"))
+                response = handle_create_list_item(user.chat_id, user_message, message.get("title"), message.get("items"))
             elif intent == 'remove_list_item':
-                response = handle_remove_list_item(chat_id, user_message, message.get("title"), message.get("items"))
+                response = handle_remove_list_item(user.chat_id, user_message, message.get("title"), message.get("items"))
             elif intent == "list_user_list_items":
-                response = handle_list_user_list_items(chat_id, user_message, message.get("title"))
+                response = handle_list_user_list_items(user.chat_id, user_message, message.get("title"))
             else:
-                response = handle_general_chat(chat_id, user_message)
+                response = handle_general_chat(user.chat_id, user_message)
 
             payload = {
                 "response": response,

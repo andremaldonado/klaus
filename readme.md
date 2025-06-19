@@ -61,7 +61,7 @@ In the future, it will be much more.
 │   |    └── client.py                         # Firestore client initialization via environment variables.
 │   ├── externals
 │   |    ├── calendar_api.py                   # Google Calendar client & helpers
-│   |    └── habitica_api.py                   # Habitica HTTP client & helpers
+│   |    └── habitica_api.py                   # Habitica HTTP client & helpers for those who use habitica as task manager
 │   ├── handlers
 │   |    ├── ai_assistant.py                   # Intent detection, date parsing, responses.
 │   |    ├── calendar.py                       # Handlers for listing and creating calendar events.
@@ -104,8 +104,6 @@ In the future, it will be much more.
 | `GOOGLE_CLIENT_ID`            | Cliend ID for OAuth                                |
 | `GOOGLE_CLIENT_SECRET`        | Secret for OAuth                                   |
 | `GOOGLE_REDIRECT_URI`         | Redirect URI of google auth key                    |
-| `HABITICA_USER_ID`            | Your Habitica user ID                              |
-| `HABITICA_API_TOKEN`          | Your Habitica API token                            |
 | `TIMEZONE`                    | Timezone of your preference                        |
 
 
@@ -124,8 +122,6 @@ pip install -r requirements.txt
 
 ```bash
 export GEMINI_API_KEY="…"
-export HABITICA_API_TOKEN="…"
-export HABITICA_USER_ID="…"
 export DB_PROJECT_ID="…"
 export DB_NAME="…"
 export ENVIRONMENT="…"
@@ -165,8 +161,6 @@ docker run \
     -e DB_PROJECT_ID="..." \
     -e DB_NAME="..." \
     -e ALLOWED_EMAILS="...@gmail.com" \
-    -e HABITICA_API_TOKEN="..." \
-    -e HABITICA_USER_ID="..." \
     -e ENVIRONMENT="dev" \
     --network=host \
     -p 8080:8080 \

@@ -2,7 +2,7 @@ import base64
 import os
 import jwt
 
-from data.user import get_user_doc
+from data.user import get_user_doc, save_user
 
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
@@ -26,11 +26,10 @@ def extract_email_from_token(token: str) -> str:
 
 
 def load_credentials(chat_id: str, scopes: list[str]) -> Credentials:
-    doc = get_user_doc(chat_id).get()
-    if not doc.exists:
+    user = get_user_doc(chat_id)
+    if not user:
         raise Exception("User not authorized. Please login at the front-end.")
-    data = doc.to_dict()
-    refresh = data.get("refresh_token")
+    refresh = getattr(user, "refresh_token", None)
     if not refresh:
         raise Exception("No refresh token found. Please re-authorize.")
 
@@ -46,5 +45,6 @@ def load_credentials(chat_id: str, scopes: list[str]) -> Credentials:
         creds.refresh(Request())
         new_rt = getattr(creds, "refresh_token", None)
         if new_rt and new_rt != refresh:
-            get_user_doc(chat_id).update({"refresh_token": new_rt})
+            user.refresh_token = new_rt
+            save_user(user)
     return creds
