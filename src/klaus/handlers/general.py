@@ -22,47 +22,64 @@ logger = logging.getLogger(__name__)
 
 # General handler
 def handle_general_chat(chat_id: str, user_message: str) -> str:
-    # 1) Fetch context of similar memories
+    
+    # 1) Fetch latest messages
     messages = []
-    relevant_memories = fetch_similar_memories(chat_id, user_message, 15)
-    if relevant_memories:
-        messages.append({
-            "role": "system",
-            "content": "Memórias relevantes similares ao assunto tratado:" + "\n - ".join(relevant_memories)
-        })
-
-    # 2) Fetch latest messages
     history = get_latest_messages(chat_id, 10) 
     if history:
         messages.append({
             "role": "system",
-            "content": "Histórico recente de mensagens trocadas:"
+            "content": "--- HISTÓRICO DE MENSAGENS (ordenado) ---"
         })
         for msg in history:
             role = msg["role"]
             if role == "klaus":
                 role = "system" # retrocompatibility only
-            messages.append({"role": role, "content": msg["text"]})
+            messages.append({"role": role, "content": f"[{msg["timestamp"]}] {role}: {msg["text"]}"})
 
-    # 3) User message
-    save_message_embedding(False, user_message, chat_id)
 
-    # 4) Check for calendar and task intents to include in the context
+    # 2) Fetch context of similar memories
+    relevant_memories = fetch_similar_memories(chat_id, user_message, 15)
+    if relevant_memories:
+        messages.append({
+            "role": "system",
+            "content": "--- MEMÓRIAS RELEVANTES ---"
+        })
+        for memory in relevant_memories:
+            messages.append({
+                "role": "system",
+                "content": f"• {memory}"
+            })
+
+    # 3) Check for calendar and task intents to include in the context
     intents = check_intents(user_message)
     if "calendar" in intents:
         events = list_today_events(chat_id)
         if events:
             messages.append({
                 "role": "system",
-                "content": f"Eventos do usuário em sua agenda, caso seja útil:\n {events}"
+                "content": f"--- AGENDA DO USUÁRIO (se necessário) ---"
             })
+            for event in events:
+                messages.append({
+                    "role": "system",
+                    "content": f"• {event}"
+                })
     if "tasks" in intents:
         tasks = get_tasks()
         if tasks:
             messages.append({
                 "role": "system",
-                "content": f"Tarefas do usuário em sua lista de tarefas, caso seja útil:\n {tasks}"
+                "content": f"--- TAREFAS DO USUÁRIO (se necessário) ---"
             })
+            for task in tasks:
+                messages.append({
+                    "role": "system",
+                    "content": f"• {task}"
+                })
+
+    # 4) User message
+    save_message_embedding(False, user_message, chat_id)
 
     # 5) Generate response
     response = chat(user_message, messages)

@@ -13,20 +13,24 @@ from typing import List, Dict, Any, Optional
 # Constants
 TIMEZONE = pytz.timezone(os.getenv("TIMEZONE", "America/Sao_Paulo"))
 TODAY_DATE = datetime.now(TIMEZONE).strftime("%d/%m/%Y %H:%M")
-BASIC_INSTRUCTIONS = [
-    "Você é Klaus, um assistente pessoal pronto para ajudar em qualquer tarefa que o usuário solicitar.",
-    "Você usa um complexo sistema de apoio para te suportar nas operações que o usuário solicitar, como agenda, tarefas e gerenciamento de listas.",
-    "Sua missão é manter uma conversa agradável e útil com o usuário, sempre com um tom respeitoso e conciso.",
-    "Você pode responder perguntas, oferecer sugestões, criar tarefas, organizar eventos, manusear listas, e muito mais.",
-    "Considere que sua memória é específica para o contexto do que o usuário está pedindo.",
-    "Você usa o histórico de conversa e memórias relevantes para responder de forma natural. ",
-    "Não peça para o usuário repetir informações já dadas.", 
-    f"Hoje é {TODAY_DATE}.",
-    "=== Instruções de Formatação da resposta ===",
-    "- Use texto simples. Você pode usar quebras de linha para separar tópicos.",
-    "- Evite formatação em Markdown.",
-    "- Use emojis quando entender ser necessário."
-]
+BASIC_INSTRUCTIONS = """
+    --- INSTRUÇÕES GERAIS ---
+    Você é Klaus, um assistente pessoal personalizado. 
+    Mantenha uma conversa fluida com o usuário.
+    Use um tom respeitoso e conciso.
+    --- PAPEL E MISSÃO ---
+    Você DEVE:
+    • Responder apenas com base nas informações fornecidas.
+    • NÃO INVENTAR fatos nem supor detalhes ausentes.
+    • Se não souber, responda algo como 'Desculpe, não sei' e peça mais informações.
+    --- FORMATO DA RESPOSTA ---
+    • Use lista com marcadores e, se for longo, separe em parágrafos claros.
+    • Use formatação básica como negrito e itálico quando necessário.
+    • Use emojis com moderação, apenas quando fizer sentido.
+    --- ORIENTAÇÕES DE RACIOCÍNIO ---
+    Pense passo a passo antes de elaborar a resposta. Se algo não estiver claro, solicite esclarecimentos.
+    --- INFORMAÇÕES ADICIONAIS ---
+    Hoje é {TODAY_DATE}."""
 INSERTION_KEYWORDS = r'\b(?:coloque|coloca|colocar|adicione|adicionar|ponha|inclua|incluir|insira|acrescente|crie)\b'
 SHOW_KEYWORDS = r'\b(?:mostre|tenho|quais)\b'
 FINISH_KEYWORDS = r'\b(?:terminei|já fiz|concluí|acabei|finalizei)\b'
@@ -108,42 +112,48 @@ def check_intents(user_message: str) -> List[str]:
 
 def chat(message: str, context: list[dict[str, str]]) -> str:
 
-    ai_prompt_system_context = []
+    instructions = BASIC_INSTRUCTIONS.format(TODAY_DATE=TODAY_DATE)
     for msg in context:
-        ai_prompt_system_context.append(f"{msg["content"]}")
-    for item in BASIC_INSTRUCTIONS:
-        ai_prompt_system_context.append(item)
+        instructions += msg["content"] + "\n"
+
+    print(f"DEBUG PRINT -  AI Prompt System Context: {json.dumps(instructions, ensure_ascii=False)}")
 
     response = client.models.generate_content(
-        model="gemini-2.0-flash-lite",
+        model="gemini-2.5-flash",
         contents=message,
-        config=genai.types.GenerateContentConfig(
-            system_instruction=ai_prompt_system_context,
-            temperature=2.0
+        config=types.GenerateContentConfig(
+            system_instruction=instructions,
+            thinking_config=types.ThinkingConfig(thinking_budget=1024),
+            temperature=1
         )
     )
     return response.text
 
 
 def generate_tasks_suggestion(tasks: str, events: str, user_context: str) -> str:
-    # Generates a suggestion using ChatGPT based on the provided tasks and user context.
-    today_date = datetime.now(TIMEZONE).strftime("%d/%m/%Y %H:%M")
-    
-    ai_prompt_system_context = []
-    for item in BASIC_INSTRUCTIONS:
-        ai_prompt_system_context.append(item)
-    ai_prompt_system_context.append("=== Instruções de Resposta ===")
-    ai_prompt_system_context.append(f"Abaixo estão as tarefas do usuário: {tasks}")
-    ai_prompt_system_context.append(f"Abaixo está a agenda do usuário: {events}")
-    ai_prompt_system_context.append("Responda à solicitação do usuário considerando o contexto do usuário e as tarefas listadas.")
-    ai_prompt_system_context.append("Note que podem existir tarefas e eventos para outros dias ou que já foram finalizados.")
-    ai_prompt_system_context.append("Considere isso para responder ao usuário de acordo com a solicitação dele.")
+
+    instructions = BASIC_INSTRUCTIONS.replace("{TODAY_DATE}", TODAY_DATE)
+
+    context = """
+    --- Instruções de Resposta ---
+    Abaixo estão as tarefas do usuário:
+    {tasks}
+    Abaixo está a agenda do usuário: 
+    {events}
+    • Responda à solicitação do usuário considerando o contexto do usuário e as tarefas listadas.
+    • Note que podem existir tarefas e eventos para outros dias ou que já foram finalizados.
+    • Considere isso para responder ao usuário de acordo com a solicitação dele.
+    """
+    instructions += context.format(
+        tasks=tasks,
+        events=events)
 
     response = client.models.generate_content(
-        model="gemini-2.0-flash-lite",
+        model="gemini-2.5-flash",
         contents=user_context,
         config=genai.types.GenerateContentConfig(
-            system_instruction=ai_prompt_system_context,
+            system_instruction=instructions,
+            thinking_config=types.ThinkingConfig(thinking_budget=256),
             temperature=0.5
         )
     )
