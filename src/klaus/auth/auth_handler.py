@@ -3,7 +3,8 @@ import requests
 import base64
 import logging
 
-from data.user import get_user_doc
+from data.user import get_user_doc, save_user
+from schemas import User
 from schemas import AuthCodeRequest
 from auth.credentials import extract_email_from_token, sanitize_id
 
@@ -26,11 +27,10 @@ logger = logging.getLogger(__name__)
 
 
 def _refresh_id_token(chat_id: str) -> str:
-    doc = get_user_doc(chat_id).get()
-    if not doc.exists:
+    user = get_user_doc(chat_id)
+    if user is None:
         raise Exception("User not found. Please login at the front-end.")
-    data = doc.to_dict()
-    refresh_token = data.get("refresh_token")
+    refresh_token = getattr(user, "refresh_token", None)
     if not refresh_token:
         raise Exception("Unauthorized. Please login at the front-end.")
 
@@ -47,7 +47,7 @@ def _refresh_id_token(chat_id: str) -> str:
     return resp.json()["id_token"]
 
 
-def authenticate_request(auth_header) -> Tuple[int, Union[str, Dict[str, Any]]]:
+def authenticate_request(auth_header) -> Tuple[int, Union[None, "User"]]:
     if not auth_header.startswith("Bearer "):
         logger.error(f"❌ [ERROR] Invalid authorization header: {auth_header}")
         return 401, None
@@ -68,7 +68,7 @@ def authenticate_request(auth_header) -> Tuple[int, Union[str, Dict[str, Any]]]:
         
     if not idinfo:
         logger.error(f"❌ [ERROR] Invalid ID token: {id_token_str}")
-        return 401, "Invalid ID token - Authentication failed"
+        return 401, None
     
     email = idinfo.get("email")
     if not idinfo.get("email_verified"):
@@ -84,8 +84,12 @@ def authenticate_request(auth_header) -> Tuple[int, Union[str, Dict[str, Any]]]:
     if not chat_id:
         logger.error(f"❌ [ERROR] Invalid chat_id: {chat_id}")
         return 401, None
+
+    user = get_user_doc(chat_id)
+    if not user:
+        return 404, None
     
-    return 200, chat_id
+    return 200, user
 
 
 def handle_google_auth(request):
@@ -134,26 +138,21 @@ def handle_google_auth(request):
     if not refresh:
         return ("No refresh token returned", 502, headers)
 
-    # Valida o ID token (JWT)
     try:
         idinfo = get_id_info(idtok)
     except Exception as e:
         logger.error(f"❌ [ERROR] Invalid ID token: {e}")
         return ("Invalid ID token", 401, headers)
 
-    email   = idinfo.get("email")
-    name    = idinfo.get("name")
-    chat_id = base64.urlsafe_b64encode(email.encode("utf-8")).decode("ascii").rstrip("=")
+    user = User(
+        chat_id=base64.urlsafe_b64encode(idinfo["email"].encode("utf-8")).decode("ascii").rstrip("="),
+        email=idinfo.get("email"),
+        name=idinfo.get("name"),
+        refresh_token=refresh
+    )
+    save_user(user)
 
-    # Salva refresh_token e perfil do usuário
-    get_user_doc(chat_id).set({
-        "email":         email,
-        "name":          name,
-        "refresh_token": refresh,
-        "updated_at":    datetime.now(timezone.utc).isoformat()
-    }, merge=True)
-
-    return (jsonify({"idToken": idtok, "email": email, "name": name}), 200, headers)
+    return (jsonify({"idToken": idtok, "email": idinfo.get("email"), "name": idinfo.get("name")}), 200, headers)
 
 
 def get_id_info(id_token_str):

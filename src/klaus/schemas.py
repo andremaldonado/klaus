@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, field_validator
-from typing import List
+from typing import List, Optional
 
 
 class ChatRequest(BaseModel):
@@ -18,3 +18,13 @@ class ListCommand(BaseModel):
     @field_validator("items")
     def clean_items(cls, v):
         return [item.strip().lower() for item in v if item.strip()]
+       
+        
+class User(BaseModel):
+    chat_id: str
+    name: str
+    refresh_token: Optional[str] = None
+    email: Optional[str] = None
+    habitica_id: Optional[str] = None
+    habitica_token: Optional[str] = None
+    updated_at: Optional[str] = None
