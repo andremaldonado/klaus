@@ -25,7 +25,7 @@ Klaus is a cloud-native bot that helps you manage your life via natural-language
 Under the hood it uses:
 
 - **Habitica API** to fetch, create and complete tasks 
-- **Google Gemini (Vertex AI)** for NLP: intent classification & task suggestions  
+- **Google Gemini** for conversation
 - **RapidFuzz** for fuzzy matching approximate task titles  
 - **Firestore** & **ChromaDB** for conversational memory, lists management, embeddings and more
 - **Functions Framework** to deploy as a Cloud Function  
@@ -88,7 +88,6 @@ In the future, it will be much more.
   - Cloud Functions API  
   - Firestore enabled  
   - A (writable) GCS bucket or persistent volume for ChromaDB  
-- Habitica account + API token
 
 ## ⚙️ Environment Variables
 
