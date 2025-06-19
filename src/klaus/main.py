@@ -129,5 +129,4 @@ def create_app(*args, **kwargs):
 app = create_app()
 
 if __name__ == "__main__":
-    print(" Starting Klaus...")
     app.run(debug=(_ENVIRONMENT == "dev"))

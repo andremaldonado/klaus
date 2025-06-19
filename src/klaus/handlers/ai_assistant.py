@@ -116,8 +116,6 @@ def chat(message: str, context: list[dict[str, str]]) -> str:
     for msg in context:
         instructions += msg["content"] + "\n"
 
-    print(f"DEBUG PRINT -  AI Prompt System Context: {json.dumps(instructions, ensure_ascii=False)}")
-
     response = client.models.generate_content(
         model="gemini-2.5-flash",
         contents=message,
